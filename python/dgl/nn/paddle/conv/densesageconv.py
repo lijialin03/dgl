@@ -1,4 +1,5 @@
-"""Torch Module for DenseSAGEConv"""
+"""Paddle Module for DenseSAGEConv"""
+
 import paddle
 
 from ....utils import check_eq_shape
@@ -32,7 +33,7 @@ class DenseSAGEConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import DenseSAGEConv
     >>>
     >>> feat = th.ones(6, 10)
@@ -54,7 +55,7 @@ class DenseSAGEConv(paddle.nn.Layer):
 
     See also
     --------
-    `SAGEConv <https://docs.dgl.ai/api/python/nn.pytorch.html#sageconv>`__
+    `SAGEConv <https://docs.dgl.ai/api/python/nn.paddle.html#sageconv>`__
     """
 
     def __init__(
@@ -72,7 +73,9 @@ class DenseSAGEConv(paddle.nn.Layer):
         self._norm = norm
         self.feat_drop = paddle.nn.Dropout(p=feat_drop)
         self.activation = activation
-        self.fc = paddle.nn.Linear(in_features=in_feats, out_features=out_feats, bias_attr=bias)
+        self.fc = paddle.nn.Linear(
+            in_features=in_feats, out_features=out_feats, bias_attr=bias
+        )
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -99,22 +102,22 @@ class DenseSAGEConv(paddle.nn.Layer):
 
         Parameters
         ----------
-        adj : torch.Tensor
+        adj : paddle.Tensor
             The adjacency matrix of the graph to apply SAGE Convolution on, when
             applied to a unidirectional bipartite graph, ``adj`` should be of shape
             should be of shape :math:`(N_{out}, N_{in})`; when applied to a homo
             graph, ``adj`` should be of shape :math:`(N, N)`. In both cases,
             a row represents a destination node while a column represents a source
             node.
-        feat : torch.Tensor or a pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
+        feat : paddle.Tensor or a pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in})` and :math:`(N_{out}, D_{in})`.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
         """

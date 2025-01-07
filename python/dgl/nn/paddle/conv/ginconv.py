@@ -1,4 +1,5 @@
-"""Torch Module for Graph Isomorphism Network layer"""
+"""Paddle Module for Graph Isomorphism Network layer"""
+
 import paddle
 
 from .... import function as fn
@@ -43,7 +44,7 @@ class GINConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GINConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -66,7 +67,7 @@ class GINConv(paddle.nn.Layer):
             0.5266, -0.4465]], grad_fn=<AddmmBackward>)
 
     >>> # With activation
-    >>> from torch.nn.functional import relu
+    >>> from paddle.nn.functional import relu
     >>> conv = GINConv(lin, 'max', activation=relu)
     >>> res = conv(g, feat)
     >>> res
@@ -97,7 +98,9 @@ class GINConv(paddle.nn.Layer):
         self._aggregator_type = aggregator_type
         self.activation = activation
         if aggregator_type not in ("sum", "max", "mean"):
-            raise KeyError("Aggregator type {} not recognized.".format(aggregator_type))
+            raise KeyError(
+                "Aggregator type {} not recognized.".format(aggregator_type)
+            )
         if learn_eps:
             self.eps = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.to_tensor(data=[init_eps], dtype="float32")
@@ -119,20 +122,20 @@ class GINConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
+        feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in})` and :math:`(N_{out}, D_{in})`.
             If ``apply_func`` is not None, :math:`D_{in}` should
             fit the input dimensionality requirement of ``apply_func``.
-        edge_weight : torch.Tensor, optional
+        edge_weight : paddle.Tensor, optional
             Optional tensor on the edge. If given, the convolution will weight
             with regard to the message.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where
             :math:`D_{out}` is the output dimensionality of ``apply_func``.
             If ``apply_func`` is None, :math:`D_{out}` should be the same

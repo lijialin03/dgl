@@ -1,4 +1,5 @@
-"""Torch modules for graph convolutions."""
+"""Paddle modules for graph convolutions."""
+
 from .agnnconv import AGNNConv
 from .appnpconv import APPNPConv
 from .atomicconv import AtomicConv

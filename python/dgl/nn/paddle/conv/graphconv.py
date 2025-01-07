@@ -1,4 +1,5 @@
-"""Torch modules for graph convolutions(GCN)."""
+"""Paddle modules for graph convolutions(GCN)."""
+
 import paddle
 
 from .... import function as fn
@@ -38,7 +39,7 @@ class EdgeWeightNorm(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import EdgeWeightNorm, GraphConv
 
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -74,13 +75,13 @@ class EdgeWeightNorm(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        edge_weight : torch.Tensor
+        edge_weight : paddle.Tensor
             Unnormalized scalar weights on the edges.
             The shape is expected to be :math:`(|E|)`.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The normalized edge weight.
 
         Raises
@@ -109,18 +110,26 @@ class EdgeWeightNorm(paddle.nn.Layer):
                     "This leads to square root of zero or negative values."
                 )
             dtype = edge_weight.dtype
-            graph.srcdata["_src_out_w"] = paddle.ones(shape=graph.number_of_src_nodes(), dtype=dtype)
-            graph.dstdata["_dst_in_w"] = paddle.ones(shape=graph.number_of_dst_nodes(), dtype=dtype)
+            graph.srcdata["_src_out_w"] = paddle.ones(
+                shape=graph.number_of_src_nodes(), dtype=dtype
+            )
+            graph.dstdata["_dst_in_w"] = paddle.ones(
+                shape=graph.number_of_dst_nodes(), dtype=dtype
+            )
             graph.edata["_edge_w"] = edge_weight
             if self._norm == "both":
                 reversed_g = reverse(graph)
                 reversed_g.edata["_edge_w"] = edge_weight
-                reversed_g.update_all(fn.copy_e("_edge_w", "m"), fn.sum("m", "out_weight"))
+                reversed_g.update_all(
+                    fn.copy_e("_edge_w", "m"), fn.sum("m", "out_weight")
+                )
                 degs = reversed_g.dstdata["out_weight"] + self._eps
                 norm = paddle.pow(x=degs, y=-0.5)
                 graph.srcdata["_src_out_w"] = norm
             if self._norm != "none":
-                graph.update_all(fn.copy_e("_edge_w", "m"), fn.sum("m", "in_weight"))
+                graph.update_all(
+                    fn.copy_e("_edge_w", "m"), fn.sum("m", "in_weight")
+                )
                 degs = graph.dstdata["in_weight"] + self._eps
                 if self._norm == "both":
                     norm = paddle.pow(x=degs, y=-0.5)
@@ -128,7 +137,11 @@ class EdgeWeightNorm(paddle.nn.Layer):
                     norm = 1.0 / degs
                 graph.dstdata["_dst_in_w"] = norm
             graph.apply_edges(
-                lambda e: {"_norm_edge_weights": e.src["_src_out_w"] * e.dst["_dst_in_w"] * e.data["_edge_w"]}
+                lambda e: {
+                    "_norm_edge_weights": e.src["_src_out_w"]
+                    * e.dst["_dst_in_w"]
+                    * e.data["_edge_w"]
+                }
             )
             return graph.edata["_norm_edge_weights"]
 
@@ -157,7 +170,7 @@ class GraphConv(paddle.nn.Layer):
 
     To customize the normalization term :math:`c_{ji}`, one can first set ``norm='none'`` for
     the model, and send the pre-normalized :math:`e_{ji}` to the forward computation. We provide
-    :class:`~dgl.nn.pytorch.EdgeWeightNorm` to normalize scalar edge weight following the GCN paper.
+    :class:`~dgl.nn.paddle.EdgeWeightNorm` to normalize scalar edge weight following the GCN paper.
 
     Parameters
     ----------
@@ -195,9 +208,9 @@ class GraphConv(paddle.nn.Layer):
 
     Attributes
     ----------
-    weight : torch.Tensor
+    weight : paddle.Tensor
         The learnable weight tensor.
-    bias : torch.Tensor
+    bias : paddle.Tensor
         The learnable bias tensor.
 
     Note
@@ -220,7 +233,7 @@ class GraphConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GraphConv
 
     >>> # Case 1: Homogeneous graph
@@ -276,7 +289,9 @@ class GraphConv(paddle.nn.Layer):
         super(GraphConv, self).__init__()
         if norm not in ("none", "both", "right", "left"):
             raise DGLError(
-                'Invalid norm value. Must be either "none", "both", "right" or "left". But got "{}".'.format(norm)
+                'Invalid norm value. Must be either "none", "both", "right" or "left". But got "{}".'.format(
+                    norm
+                )
             )
         self._in_feats = in_feats
         self._out_feats = out_feats
@@ -289,7 +304,9 @@ class GraphConv(paddle.nn.Layer):
         else:
             self.add_parameter(name="weight", parameter=None)
         if bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feats)
+            )
         else:
             self.add_parameter(name="bias", parameter=None)
         self.reset_parameters()
@@ -342,22 +359,22 @@ class GraphConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, it represents the input feature of shape
+        feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, it represents the input feature of shape
             :math:`(N, D_{in})`
             where :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, which is the case for bipartite graph, the pair
+            If a pair of paddle.Tensor is given, which is the case for bipartite graph, the pair
             must contain two tensors of shape :math:`(N_{in}, D_{in_{src}})` and
             :math:`(N_{out}, D_{in_{dst}})`.
-        weight : torch.Tensor, optional
+        weight : paddle.Tensor, optional
             Optional external weight tensor.
-        edge_weight : torch.Tensor, optional
+        edge_weight : paddle.Tensor, optional
             Optional tensor on the edge. If given, the convolution will weight
             with regard to the message.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature
 
         Raises

@@ -1,4 +1,5 @@
 """TransR."""
+
 import paddle
 
 
@@ -29,15 +30,15 @@ class TransR(paddle.nn.Layer):
 
     Attributes
     ----------
-    rel_emb : torch.nn.Embedding
+    rel_emb : paddle.nn.Embedding
         The learnable relation type embedding.
-    rel_project : torch.nn.Embedding
+    rel_project : paddle.nn.Embedding
         The learnable relation-type-specific projection.
 
     Examples
     --------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import TransR
 
     >>> # input features
@@ -55,13 +56,17 @@ class TransR(paddle.nn.Layer):
     >>> # Randomly initialize edge relation types for demonstration
     >>> rels = th.randint(low=0, high=num_rels, size=(num_edges,))
     >>> scorer(h_head, h_tail, rels).shape
-    torch.Size([30])
+    (30,)
     """
 
     def __init__(self, num_rels, rfeats, nfeats, p=1):
         super(TransR, self).__init__()
-        self.rel_emb = paddle.nn.Embedding(num_embeddings=num_rels, embedding_dim=rfeats)
-        self.rel_project = paddle.nn.Embedding(num_embeddings=num_rels, embedding_dim=nfeats * rfeats)
+        self.rel_emb = paddle.nn.Embedding(
+            num_embeddings=num_rels, embedding_dim=rfeats
+        )
+        self.rel_project = paddle.nn.Embedding(
+            num_embeddings=num_rels, embedding_dim=nfeats * rfeats
+        )
         self.rfeats = rfeats
         self.nfeats = nfeats
         self.p = p
@@ -82,19 +87,19 @@ class TransR(paddle.nn.Layer):
 
         Parameters
         ----------
-        h_head : torch.Tensor
+        h_head : paddle.Tensor
             Head entity features. The tensor is of shape :math:`(E, D)`, where
             :math:`E` is the number of triples, and :math:`D` is the feature size.
-        h_tail : torch.Tensor
+        h_tail : paddle.Tensor
             Tail entity features. The tensor is of shape :math:`(E, D)`, where
             :math:`E` is the number of triples, and :math:`D` is the feature size.
-        rels : torch.Tensor
+        rels : paddle.Tensor
             Relation types. It is a LongTensor of shape :math:`(E)`, where
             :math:`E` is the number of triples.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The triple scores. The tensor is of shape :math:`(E)`.
         """
         h_rel = self.rel_emb(rels)

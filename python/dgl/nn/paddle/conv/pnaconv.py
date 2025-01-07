@@ -1,4 +1,5 @@
-"""Torch Module for Principal Neighbourhood Aggregation Convolution Layer"""
+"""Paddle Module for Principal Neighbourhood Aggregation Convolution Layer"""
+
 import numpy as np
 import paddle
 
@@ -40,7 +41,9 @@ def _aggregate_moment(h, n):
     """moment aggregation: for each node (E[(X-E[X])^n])^{1/n}"""
     h_mean = paddle.mean(x=h, axis=1, keepdim=True)
     h_n = paddle.mean(x=paddle.pow(x=h - h_mean, y=n), axis=1)
-    rooted_h_n = paddle.sign(x=h_n) * paddle.pow(x=paddle.abs(x=h_n) + 1e-30, y=1.0 / n)
+    rooted_h_n = paddle.sign(x=h_n) * paddle.pow(
+        x=paddle.abs(x=h_n) + 1e-30, y=1.0 / n
+    )
     return rooted_h_n
 
 
@@ -112,7 +115,9 @@ class PNAConvTower(paddle.nn.Layer):
         self.scalers = scalers
         self.delta = delta
         self.edge_feat_size = edge_feat_size
-        self.M = paddle.nn.Linear(in_features=2 * in_size + edge_feat_size, out_features=in_size)
+        self.M = paddle.nn.Linear(
+            in_features=2 * in_size + edge_feat_size, out_features=in_size
+        )
         self.U = paddle.nn.Linear(
             in_features=(len(aggregators) * len(scalers) + 1) * in_size,
             out_features=out_size,
@@ -125,10 +130,16 @@ class PNAConvTower(paddle.nn.Layer):
         tensordot of multiple aggregation and scaling operations"""
         msg = nodes.mailbox["msg"]
         degree = msg.shape[1]
-        h = paddle.concat(x=[AGGREGATORS[agg](msg) for agg in self.aggregators], axis=1)
+        h = paddle.concat(
+            x=[AGGREGATORS[agg](msg) for agg in self.aggregators], axis=1
+        )
         h = paddle.concat(
             x=[
-                (SCALERS[scaler](h, D=degree, delta=self.delta) if scaler != "identity" else h)
+                (
+                    SCALERS[scaler](h, D=degree, delta=self.delta)
+                    if scaler != "identity"
+                    else h
+                )
                 for scaler in self.scalers
             ],
             axis=1,
@@ -138,7 +149,9 @@ class PNAConvTower(paddle.nn.Layer):
     def message(self, edges):
         """message function for PNA layer"""
         if self.edge_feat_size > 0:
-            f = paddle.concat(x=[edges.src["h"], edges.dst["h"], edges.data["a"]], axis=-1)
+            f = paddle.concat(
+                x=[edges.src["h"], edges.dst["h"], edges.data["a"]], axis=-1
+            )
         else:
             f = paddle.concat(x=[edges.src["h"], edges.dst["h"]], axis=-1)
         return {"msg": self.M(f)}
@@ -146,7 +159,10 @@ class PNAConvTower(paddle.nn.Layer):
     def forward(self, graph, node_feat, edge_feat=None):
         """compute the forward pass of a single tower in PNA convolution layer"""
         snorm_n = paddle.concat(
-            x=[(paddle.ones(shape=[N, 1]).to(node_feat) / N) for N in graph.batch_num_nodes()],
+            x=[
+                (paddle.ones(shape=[N, 1]).to(node_feat) / N)
+                for N in graph.batch_num_nodes()
+            ],
             axis=0,
         ).sqrt()
         with graph.local_scope():
@@ -155,7 +171,9 @@ class PNAConvTower(paddle.nn.Layer):
                 assert edge_feat is not None, "Edge features must be provided."
                 graph.edata["a"] = edge_feat
             graph.update_all(self.message, self.reduce_func)
-            h = self.U(paddle.concat(x=[node_feat, graph.ndata["h_neigh"]], axis=-1))
+            h = self.U(
+                paddle.concat(x=[node_feat, graph.ndata["h_neigh"]], axis=-1)
+            )
             h = h * snorm_n
             return self.dropout(self.batchnorm(h))
 
@@ -232,7 +250,7 @@ class PNAConv(paddle.nn.Layer):
     Example
     -------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import PNAConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -256,8 +274,12 @@ class PNAConv(paddle.nn.Layer):
         super(PNAConv, self).__init__()
         self.in_size = in_size
         self.out_size = out_size
-        assert in_size % num_towers == 0, "in_size must be divisible by num_towers"
-        assert out_size % num_towers == 0, "out_size must be divisible by num_towers"
+        assert (
+            in_size % num_towers == 0
+        ), "in_size must be divisible by num_towers"
+        assert (
+            out_size % num_towers == 0
+        ), "out_size must be divisible by num_towers"
         self.tower_in_size = in_size // num_towers
         self.tower_out_size = out_size // num_towers
         self.edge_feat_size = edge_feat_size
@@ -293,16 +315,16 @@ class PNAConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        node_feat : torch.Tensor
+        node_feat : paddle.Tensor
             The input feature of shape :math:`(N, h_n)`. :math:`N` is the number of
             nodes, and :math:`h_n` must be the same as in_size.
-        edge_feat : torch.Tensor, optional
+        edge_feat : paddle.Tensor, optional
             The edge feature of shape :math:`(M, h_e)`. :math:`M` is the number of
             edges, and :math:`h_e` must be the same as edge_feat_size.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output node feature of shape :math:`(N, h_n')` where :math:`h_n'`
             should be the same as out_size.
         """

@@ -1,4 +1,5 @@
-"""Torch modules for graph attention networks v2 (GATv2)."""
+"""Paddle modules for graph attention networks v2 (GATv2)."""
+
 import paddle
 
 from .... import function as fn
@@ -81,7 +82,7 @@ class GATv2Conv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GATv2Conv
 
     >>> # Case 1: Homogeneous graph
@@ -178,7 +179,9 @@ class GATv2Conv(paddle.nn.Layer):
                     bias_attr=bias,
                 )
         self.attn = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=paddle.empty(shape=(1, num_heads, out_feats), dtype="float32")
+            tensor=paddle.empty(
+                shape=(1, num_heads, out_feats), dtype="float32"
+            )
         )
         self.feat_drop = paddle.nn.Dropout(p=feat_drop)
         self.attn_drop = paddle.nn.Dropout(p=attn_drop)
@@ -254,20 +257,20 @@ class GATv2Conv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
+        feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in_{src}})` and :math:`(N_{out}, D_{in_{dst}})`.
         get_attention : bool, optional
             Whether to return the attention values. Default to False.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, H, D_{out})` where :math:`H`
             is the number of heads, and :math:`D_{out}` is size of output feature.
-        torch.Tensor, optional
+        paddle.Tensor, optional
             The attention values of shape :math:`(E, H, 1)`, where :math:`E` is the number of
             edges. This is returned only when :attr:`get_attention` is ``True``.
 
@@ -295,15 +298,23 @@ class GATv2Conv(paddle.nn.Layer):
             if isinstance(feat, tuple):
                 h_src = self.feat_drop(feat[0])
                 h_dst = self.feat_drop(feat[1])
-                feat_src = self.fc_src(h_src).view(-1, self._num_heads, self._out_feats)
-                feat_dst = self.fc_dst(h_dst).view(-1, self._num_heads, self._out_feats)
+                feat_src = self.fc_src(h_src).view(
+                    -1, self._num_heads, self._out_feats
+                )
+                feat_dst = self.fc_dst(h_dst).view(
+                    -1, self._num_heads, self._out_feats
+                )
             else:
                 h_src = h_dst = self.feat_drop(feat)
-                feat_src = self.fc_src(h_src).view(-1, self._num_heads, self._out_feats)
+                feat_src = self.fc_src(h_src).view(
+                    -1, self._num_heads, self._out_feats
+                )
                 if self.share_weights:
                     feat_dst = feat_src
                 else:
-                    feat_dst = self.fc_dst(h_dst).view(-1, self._num_heads, self._out_feats)
+                    feat_dst = self.fc_dst(h_dst).view(
+                        -1, self._num_heads, self._out_feats
+                    )
                 if graph.is_block:
                     feat_dst = feat_dst[: graph.number_of_dst_nodes()]
                     h_dst = h_dst[: graph.number_of_dst_nodes()]
@@ -316,7 +327,9 @@ class GATv2Conv(paddle.nn.Layer):
             graph.update_all(fn.u_mul_e("el", "a", "m"), fn.sum("m", "ft"))
             rst = graph.dstdata["ft"]
             if self.res_fc is not None:
-                resval = self.res_fc(h_dst).view(tuple(h_dst.shape)[0], -1, self._out_feats)
+                resval = self.res_fc(h_dst).view(
+                    tuple(h_dst.shape)[0], -1, self._out_feats
+                )
                 rst = rst + resval
             if self.activation:
                 rst = self.activation(rst)

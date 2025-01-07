@@ -1,4 +1,5 @@
-"""Torch modules for graph attention networks(GAT)."""
+"""Paddle modules for graph attention networks(GAT)."""
+
 import paddle
 
 from .... import function as fn
@@ -66,7 +67,7 @@ class DotGatConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import DotGatConv
 
     >>> # Case 1: Homogeneous graph
@@ -118,7 +119,9 @@ class DotGatConv(paddle.nn.Layer):
             [ 0.1594,  0.3825]]], grad_fn=<BinaryReduceBackward>)
     """
 
-    def __init__(self, in_feats, out_feats, num_heads, allow_zero_in_degree=False):
+    def __init__(
+        self, in_feats, out_feats, num_heads, allow_zero_in_degree=False
+    ):
         super(DotGatConv, self).__init__()
         self._in_src_feats, self._in_dst_feats = expand_as_pair(in_feats)
         self._out_feats = out_feats
@@ -153,20 +156,20 @@ class DotGatConv(paddle.nn.Layer):
         ----------
         graph: DGLGraph or bi_partities graph
             The graph
-        feat: torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
+        feat: paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in_{src}})` and :math:`(N_{out}, D_{in_{dst}})`.
         get_attention : bool, optional
             Whether to return the attention values. Default to False.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}` is size
             of output feature.
-        torch.Tensor, optional
+        paddle.Tensor, optional
             The attention values of shape :math:`(E, 1)`, where :math:`E` is the number of
             edges. This is returned only when :attr:`get_attention` is ``True``.
 
@@ -194,18 +197,28 @@ class DotGatConv(paddle.nn.Layer):
         if isinstance(feat, tuple):
             h_src = feat[0]
             h_dst = feat[1]
-            feat_src = self.fc_src(h_src).view(-1, self._num_heads, self._out_feats)
-            feat_dst = self.fc_dst(h_dst).view(-1, self._num_heads, self._out_feats)
+            feat_src = self.fc_src(h_src).view(
+                -1, self._num_heads, self._out_feats
+            )
+            feat_dst = self.fc_dst(h_dst).view(
+                -1, self._num_heads, self._out_feats
+            )
         else:
             h_src = feat
-            feat_src = feat_dst = self.fc(h_src).view(-1, self._num_heads, self._out_feats)
+            feat_src = feat_dst = self.fc(h_src).view(
+                -1, self._num_heads, self._out_feats
+            )
             if graph.is_block:
                 feat_dst = feat_src[: graph.number_of_dst_nodes()]
         graph.srcdata.update({"ft": feat_src})
         graph.dstdata.update({"ft": feat_dst})
         graph.apply_edges(fn.u_dot_v("ft", "ft", "a"))
-        graph.edata["sa"] = edge_softmax(graph, graph.edata["a"] / self._out_feats**0.5)
-        graph.update_all(fn.u_mul_e("ft", "sa", "attn"), fn.sum("attn", "agg_u"))
+        graph.edata["sa"] = edge_softmax(
+            graph, graph.edata["a"] / self._out_feats**0.5
+        )
+        graph.update_all(
+            fn.u_mul_e("ft", "sa", "attn"), fn.sum("attn", "agg_u")
+        )
         rst = graph.dstdata["agg_u"]
         if get_attention:
             return rst, graph.edata["sa"]

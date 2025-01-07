@@ -1,4 +1,5 @@
-"""Torch Module for GMM Conv"""
+"""Paddle Module for GMM Conv"""
+
 import paddle
 
 from .... import function as fn
@@ -67,7 +68,7 @@ class GMMConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GMMConv
 
     >>> # Case 1: Homogeneous graph
@@ -125,9 +126,15 @@ class GMMConv(paddle.nn.Layer):
         elif aggregator_type == "max":
             self._reducer = fn.max
         else:
-            raise KeyError("Aggregator type {} not recognized.".format(aggregator_type))
-        self.mu = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.empty(shape=[n_kernels, dim]))
-        self.inv_sigma = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.empty(shape=[n_kernels, dim]))
+            raise KeyError(
+                "Aggregator type {} not recognized.".format(aggregator_type)
+            )
+        self.mu = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.empty(shape=[n_kernels, dim])
+        )
+        self.inv_sigma = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.empty(shape=[n_kernels, dim])
+        )
         self.fc = paddle.nn.Linear(
             in_features=self._in_src_feats,
             out_features=n_kernels * out_feats,
@@ -145,7 +152,9 @@ class GMMConv(paddle.nn.Layer):
         else:
             self.register_buffer(name="res_fc", tensor=None)
         if bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feats)
+            )
         else:
             self.register_buffer(name="bias", tensor=None)
         self.reset_parameters()
@@ -203,19 +212,19 @@ class GMMConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             If a single tensor is given, the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
             If a pair of tensors are given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in_{src}})` and :math:`(N_{out}, D_{in_{dst}})`.
-        pseudo : torch.Tensor
+        pseudo : paddle.Tensor
             The pseudo coordinate tensor of shape :math:`(E, D_{u})` where
             :math:`E` is the number of edges of the graph and :math:`D_{u}`
             is the dimensionality of pseudo coordinate.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is the output feature size.
 
@@ -241,10 +250,22 @@ class GMMConv(paddle.nn.Layer):
                         "suppress the check and let the code run."
                     )
             feat_src, feat_dst = expand_as_pair(feat, graph)
-            graph.srcdata["h"] = self.fc(feat_src).view(-1, self._n_kernels, self._out_feats)
+            graph.srcdata["h"] = self.fc(feat_src).view(
+                -1, self._n_kernels, self._out_feats
+            )
             E = graph.num_edges()
-            gaussian = -0.5 * (pseudo.view(E, 1, self._dim) - self.mu.view(1, self._n_kernels, self._dim)) ** 2
-            gaussian = gaussian * self.inv_sigma.view(1, self._n_kernels, self._dim) ** 2
+            gaussian = (
+                -0.5
+                * (
+                    pseudo.view(E, 1, self._dim)
+                    - self.mu.view(1, self._n_kernels, self._dim)
+                )
+                ** 2
+            )
+            gaussian = (
+                gaussian
+                * self.inv_sigma.view(1, self._n_kernels, self._dim) ** 2
+            )
             gaussian = paddle.exp(x=gaussian.sum(axis=-1, keepdim=True))
             graph.edata["w"] = gaussian
             graph.update_all(fn.u_mul_e("h", "w", "m"), self._reducer("m", "h"))

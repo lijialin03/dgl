@@ -1,4 +1,5 @@
-"""Torch Module for GNNExplainer"""
+"""Paddle Module for GNNExplainer"""
+
 from math import sqrt
 
 import paddle
@@ -67,7 +68,7 @@ class GNNExplainer(paddle.nn.Layer):
         self,
         model,
         num_hops,
-        lr=0.01,
+        learning_rate=0.01,
         num_epochs=100,
         *,
         alpha1=0.005,
@@ -79,7 +80,7 @@ class GNNExplainer(paddle.nn.Layer):
         super(GNNExplainer, self).__init__()
         self.model = model
         self.num_hops = num_hops
-        self.lr = lr
+        self.lr = learning_rate
         self.num_epochs = num_epochs
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -109,9 +110,15 @@ class GNNExplainer(paddle.nn.Layer):
         num_nodes, feat_size = tuple(feat.shape)
         num_edges = graph.num_edges()
         std = 0.1
-        feat_mask = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.randn(shape=[1, feat_size]) * std)
-        std = paddle.nn.initializer.calculate_gain(nonlinearity="relu") * sqrt(2.0 / (2 * num_nodes))
-        edge_mask = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.randn(shape=num_edges) * std)
+        feat_mask = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.randn(shape=[1, feat_size]) * std
+        )
+        std = paddle.nn.initializer.calculate_gain(nonlinearity="relu") * sqrt(
+            2.0 / (2 * num_nodes)
+        )
+        edge_mask = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.randn(shape=num_edges) * std
+        )
         return feat_mask, edge_mask
 
     def _loss_regularize(self, loss, feat_mask, edge_mask):
@@ -136,11 +143,15 @@ class GNNExplainer(paddle.nn.Layer):
         eps = 1e-15
         edge_mask = edge_mask.sigmoid()
         loss = loss + self.alpha1 * paddle.sum(x=edge_mask)
-        ent = -edge_mask * paddle.log(x=edge_mask + eps) - (1 - edge_mask) * paddle.log(x=1 - edge_mask + eps)
+        ent = -edge_mask * paddle.log(x=edge_mask + eps) - (
+            1 - edge_mask
+        ) * paddle.log(x=1 - edge_mask + eps)
         loss = loss + self.alpha2 * ent.mean()
         feat_mask = feat_mask.sigmoid()
         loss = loss + self.beta1 * paddle.mean(x=feat_mask)
-        ent = -feat_mask * paddle.log(x=feat_mask + eps) - (1 - feat_mask) * paddle.log(x=1 - feat_mask + eps)
+        ent = -feat_mask * paddle.log(x=feat_mask + eps) - (
+            1 - feat_mask
+        ) * paddle.log(x=1 - feat_mask + eps)
         loss = loss + self.beta2 * ent.mean()
         return loss
 
@@ -184,8 +195,8 @@ class GNNExplainer(paddle.nn.Layer):
 
         >>> import dgl
         >>> import dgl.function as fn
-        >>> import torch
-        >>> import torch.nn as nn
+        >>> import paddle
+        >>> import paddle.nn as nn
         >>> from dgl.data import CoraGraphDataset
         >>> from dgl.nn import GNNExplainer
 
@@ -216,7 +227,7 @@ class GNNExplainer(paddle.nn.Layer):
         >>> # Train the model
         >>> model = Model(features.shape[1], data.num_classes)
         >>> criterion = nn.CrossEntropyLoss()
-        >>> optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        >>> optimizer = paddle.optimizer.Adam(model.parameters(), learning_rate=1e-2)
         >>> for epoch in range(10):
         ...     logits = model(g, features)
         ...     loss = criterion(logits[train_mask], labels[train_mask])
@@ -262,14 +273,18 @@ class GNNExplainer(paddle.nn.Layer):
             pred_label = logits.argmax(axis=-1)
         feat_mask, edge_mask = self._init_masks(sg, feat)
         params = [feat_mask, edge_mask]
-        optimizer = paddle.optimizer.Adam(parameters=params, learning_rate=self.lr, weight_decay=0.0)
+        optimizer = paddle.optimizer.Adam(
+            parameters=params, learning_rate=self.lr, weight_decay=0.0
+        )
         if self.log:
             pbar = tqdm(total=self.num_epochs)
             pbar.set_description(f"Explain node {node_id}")
         for _ in range(self.num_epochs):
             optimizer.clear_gradients(set_to_zero=False)
             h = feat * feat_mask.sigmoid()
-            logits = self.model(graph=sg, feat=h, eweight=edge_mask.sigmoid(), **kwargs)
+            logits = self.model(
+                graph=sg, feat=h, eweight=edge_mask.sigmoid(), **kwargs
+            )
             log_probs = logits.log_softmax(dim=-1)
             loss = -log_probs[inverse_indices, pred_label[inverse_indices]]
             loss = self._loss_regularize(loss, feat_mask, edge_mask)
@@ -315,8 +330,8 @@ class GNNExplainer(paddle.nn.Layer):
         --------
 
         >>> import dgl.function as fn
-        >>> import torch
-        >>> import torch.nn as nn
+        >>> import paddle
+        >>> import paddle.nn as nn
         >>> from dgl.data import GINDataset
         >>> from dgl.dataloading import GraphDataLoader
         >>> from dgl.nn import AvgPooling, GNNExplainer
@@ -347,7 +362,7 @@ class GNNExplainer(paddle.nn.Layer):
         >>> feat_size = data[0][0].ndata['attr'].shape[1]
         >>> model = Model(feat_size, data.gclasses)
         >>> criterion = nn.CrossEntropyLoss()
-        >>> optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        >>> optimizer = paddle.optimizer.Adam(model.parameters(), learning_rate=1e-2)
         >>> for bg, labels in dataloader:
         ...     logits = model(bg, bg.ndata['attr'])
         ...     loss = criterion(logits, labels)
@@ -372,14 +387,18 @@ class GNNExplainer(paddle.nn.Layer):
             pred_label = logits.argmax(axis=-1)
         feat_mask, edge_mask = self._init_masks(graph, feat)
         params = [feat_mask, edge_mask]
-        optimizer = paddle.optimizer.Adam(parameters=params, learning_rate=self.lr, weight_decay=0.0)
+        optimizer = paddle.optimizer.Adam(
+            parameters=params, learning_rate=self.lr, weight_decay=0.0
+        )
         if self.log:
             pbar = tqdm(total=self.num_epochs)
             pbar.set_description("Explain graph")
         for _ in range(self.num_epochs):
             optimizer.clear_gradients(set_to_zero=False)
             h = feat * feat_mask.sigmoid()
-            logits = self.model(graph=graph, feat=h, eweight=edge_mask.sigmoid(), **kwargs)
+            logits = self.model(
+                graph=graph, feat=h, eweight=edge_mask.sigmoid(), **kwargs
+            )
             log_probs = logits.log_softmax(dim=-1)
             loss = -log_probs[0, pred_label[0]]
             loss = self._loss_regularize(loss, feat_mask, edge_mask)
@@ -450,7 +469,7 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         self,
         model,
         num_hops,
-        lr=0.01,
+        learning_rate=0.01,
         num_epochs=100,
         *,
         alpha1=0.005,
@@ -462,7 +481,7 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         super(HeteroGNNExplainer, self).__init__()
         self.model = model
         self.num_hops = num_hops
-        self.lr = lr
+        self.lr = learning_rate
         self.num_epochs = num_epochs
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -496,7 +515,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         std = 0.1
         for node_type, feature in feat.items():
             _, feat_size = tuple(feature.shape)
-            feat_masks[node_type] = paddle.base.framework.EagerParamBase.from_tensor(
+            feat_masks[
+                node_type
+            ] = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.randn(shape=[1, feat_size]) * std
             )
         edge_masks = {}
@@ -508,7 +529,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
             std = paddle.nn.initializer.calculate_gain(nonlinearity="relu")
             if num_nodes_sum > 0:
                 std *= sqrt(2.0 / num_nodes_sum)
-            edge_masks[canonical_etype] = paddle.base.framework.EagerParamBase.from_tensor(
+            edge_masks[
+                canonical_etype
+            ] = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.randn(shape=num_edges) * std
             )
         return feat_masks, edge_masks
@@ -538,12 +561,16 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         for edge_mask in edge_masks.values():
             edge_mask = edge_mask.sigmoid()
             loss = loss + self.alpha1 * paddle.sum(x=edge_mask)
-            ent = -edge_mask * paddle.log(x=edge_mask + eps) - (1 - edge_mask) * paddle.log(x=1 - edge_mask + eps)
+            ent = -edge_mask * paddle.log(x=edge_mask + eps) - (
+                1 - edge_mask
+            ) * paddle.log(x=1 - edge_mask + eps)
             loss = loss + self.alpha2 * ent.mean()
         for feat_mask in feat_masks.values():
             feat_mask = feat_mask.sigmoid()
             loss = loss + self.beta1 * paddle.mean(x=feat_mask)
-            ent = -feat_mask * paddle.log(x=feat_mask + eps) - (1 - feat_mask) * paddle.log(x=1 - feat_mask + eps)
+            ent = -feat_mask * paddle.log(x=feat_mask + eps) - (
+                1 - feat_mask
+            ) * paddle.log(x=1 - feat_mask + eps)
             loss = loss + self.beta2 * ent.mean()
         return loss
 
@@ -596,9 +623,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
 
         >>> import dgl
         >>> import dgl.function as fn
-        >>> import torch as th
-        >>> import torch.nn as nn
-        >>> import torch.nn.functional as F
+        >>> import paddle as th
+        >>> import paddle.nn as nn
+        >>> import paddle.nn.functional as F
         >>> from dgl.nn import HeteroGNNExplainer
 
         >>> class Model(nn.Module):
@@ -668,18 +695,24 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         """
         self.model = self.model.to(graph.place)
         self.model.eval()
-        sg, inverse_indices = khop_in_subgraph(graph, {ntype: node_id}, self.num_hops)
+        sg, inverse_indices = khop_in_subgraph(
+            graph, {ntype: node_id}, self.num_hops
+        )
         inverse_indices = inverse_indices[ntype]
         sg_nodes = sg.ndata[NID]
         sg_feat = {}
         for node_type in sg_nodes.keys():
-            sg_feat[node_type] = feat[node_type][sg_nodes[node_type].astype(dtype="int64")]
+            sg_feat[node_type] = feat[node_type][
+                sg_nodes[node_type].astype(dtype="int64")
+            ]
         with paddle.no_grad():
             logits = self.model(graph=sg, feat=sg_feat, **kwargs)[ntype]
             pred_label = logits.argmax(axis=-1)
         feat_mask, edge_mask = self._init_masks(sg, sg_feat)
         params = [*feat_mask.values(), *edge_mask.values()]
-        optimizer = paddle.optimizer.Adam(parameters=params, learning_rate=self.lr, weight_decay=0.0)
+        optimizer = paddle.optimizer.Adam(
+            parameters=params, learning_rate=self.lr, weight_decay=0.0
+        )
         if self.log:
             pbar = tqdm(total=self.num_epochs)
             pbar.set_description(f"Explain node {node_id} with type {ntype}")
@@ -691,7 +724,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
             eweight = {}
             for canonical_etype, canonical_etype_mask in edge_mask.items():
                 eweight[canonical_etype] = canonical_etype_mask.sigmoid()
-            logits = self.model(graph=sg, feat=h, eweight=eweight, **kwargs)[ntype]
+            logits = self.model(graph=sg, feat=h, eweight=eweight, **kwargs)[
+                ntype
+            ]
             log_probs = logits.log_softmax(dim=-1)
             loss = -log_probs[inverse_indices, pred_label[inverse_indices]]
             loss = self._loss_regularize(loss, feat_mask, edge_mask)
@@ -702,9 +737,13 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         if self.log:
             pbar.close()
         for node_type in feat_mask:
-            feat_mask[node_type] = feat_mask[node_type].detach().sigmoid().squeeze()
+            feat_mask[node_type] = (
+                feat_mask[node_type].detach().sigmoid().squeeze()
+            )
         for canonical_etype in edge_mask:
-            edge_mask[canonical_etype] = edge_mask[canonical_etype].detach().sigmoid()
+            edge_mask[canonical_etype] = (
+                edge_mask[canonical_etype].detach().sigmoid()
+            )
         return inverse_indices, sg, feat_mask, edge_mask
 
     def explain_graph(self, graph, feat, **kwargs):
@@ -742,9 +781,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
 
         >>> import dgl
         >>> import dgl.function as fn
-        >>> import torch as th
-        >>> import torch.nn as nn
-        >>> import torch.nn.functional as F
+        >>> import paddle as th
+        >>> import paddle.nn as nn
+        >>> import paddle.nn.functional as F
         >>> from dgl.nn import HeteroGNNExplainer
 
         >>> class Model(nn.Module):
@@ -814,7 +853,9 @@ class HeteroGNNExplainer(paddle.nn.Layer):
             pred_label = logits.argmax(axis=-1)
         feat_mask, edge_mask = self._init_masks(graph, feat)
         params = [*feat_mask.values(), *edge_mask.values()]
-        optimizer = paddle.optimizer.Adam(parameters=params, learning_rate=self.lr, weight_decay=0.0)
+        optimizer = paddle.optimizer.Adam(
+            parameters=params, learning_rate=self.lr, weight_decay=0.0
+        )
         if self.log:
             pbar = tqdm(total=self.num_epochs)
             pbar.set_description("Explain graph")
@@ -837,7 +878,11 @@ class HeteroGNNExplainer(paddle.nn.Layer):
         if self.log:
             pbar.close()
         for node_type in feat_mask:
-            feat_mask[node_type] = feat_mask[node_type].detach().sigmoid().squeeze()
+            feat_mask[node_type] = (
+                feat_mask[node_type].detach().sigmoid().squeeze()
+            )
         for canonical_etype in edge_mask:
-            edge_mask[canonical_etype] = edge_mask[canonical_etype].detach().sigmoid()
+            edge_mask[canonical_etype] = (
+                edge_mask[canonical_etype].detach().sigmoid()
+            )
         return feat_mask, edge_mask

@@ -1,4 +1,5 @@
 """Degree Encoder"""
+
 import paddle
 
 
@@ -27,19 +28,19 @@ class DegreeEncoder(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> from dgl.nn import DegreeEncoder
-    >>> import torch as th
-    >>> from torch.nn.utils.rnn import pad_sequence
+    >>> import paddle as th
+    >>> from paddle.nn.utils.rnn import pad_sequence
 
     >>> g1 = dgl.graph(([0,0,0,1,1,2,3,3], [1,2,3,0,3,0,0,1]))
     >>> g2 = dgl.graph(([0,1], [1,0]))
     >>> in_degree = pad_sequence([g1.in_degrees(), g2.in_degrees()], batch_first=True)
     >>> out_degree = pad_sequence([g1.out_degrees(), g2.out_degrees()], batch_first=True)
     >>> print(in_degree.shape)
-    torch.Size([2, 4])
+    (2, 4)
     >>> degree_encoder = DegreeEncoder(5, 16)
     >>> degree_embedding = degree_encoder(th.stack((in_degree, out_degree)))
     >>> print(degree_embedding.shape)
-    torch.Size([2, 4, 16])
+    (2, 4, 16)
     """
 
     def __init__(self, max_degree, embedding_dim, direction="both"):
@@ -89,8 +90,14 @@ class DegreeEncoder(paddle.nn.Layer):
             assert len(tuple(degrees.shape)) == 2
             degree_embedding = self.encoder(degrees)
         elif self.direction == "both":
-            assert len(tuple(degrees.shape)) == 3 and tuple(degrees.shape)[0] == 2
-            degree_embedding = self.encoder1(degrees[0]) + self.encoder2(degrees[1])
+            assert (
+                len(tuple(degrees.shape)) == 3 and tuple(degrees.shape)[0] == 2
+            )
+            degree_embedding = self.encoder1(degrees[0]) + self.encoder2(
+                degrees[1]
+            )
         else:
-            raise ValueError(f'Supported direction options: "in", "out" and "both", but got {self.direction}')
+            raise ValueError(
+                f'Supported direction options: "in", "out" and "both", but got {self.direction}'
+            )
         return degree_embedding

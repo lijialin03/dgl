@@ -1,4 +1,5 @@
-"""Torch Module for EdgeConv Layer"""
+"""Paddle Module for EdgeConv Layer"""
+
 import paddle
 
 from .... import function as fn
@@ -60,7 +61,7 @@ class EdgeConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import EdgeConv
 
     >>> # Case 1: Homogeneous graph
@@ -92,11 +93,15 @@ class EdgeConv(paddle.nn.Layer):
             [ 0.2342, -0.9868]], grad_fn=<CopyReduceBackward>)
     """
 
-    def __init__(self, in_feat, out_feat, batch_norm=False, allow_zero_in_degree=False):
+    def __init__(
+        self, in_feat, out_feat, batch_norm=False, allow_zero_in_degree=False
+    ):
         super(EdgeConv, self).__init__()
         self.batch_norm = batch_norm
         self._allow_zero_in_degree = allow_zero_in_degree
-        self.theta = paddle.nn.Linear(in_features=in_feat, out_features=out_feat)
+        self.theta = paddle.nn.Linear(
+            in_features=in_feat, out_features=out_feat
+        )
         self.phi = paddle.nn.Linear(in_features=in_feat, out_features=out_feat)
         if batch_norm:
             self.bn = paddle.nn.BatchNorm1D(num_features=out_feat)
@@ -136,7 +141,7 @@ class EdgeConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             New node features.
 
         Raises

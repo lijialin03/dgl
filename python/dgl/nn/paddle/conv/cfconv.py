@@ -1,4 +1,5 @@
-"""Torch modules for interaction blocks in SchNet"""
+"""Paddle modules for interaction blocks in SchNet"""
+
 import numpy as np
 import paddle
 
@@ -73,7 +74,7 @@ class CFConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import CFConv
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
     >>> nfeat = th.ones(6, 10)
@@ -92,12 +93,18 @@ class CFConv(paddle.nn.Layer):
     def __init__(self, node_in_feats, edge_in_feats, hidden_feats, out_feats):
         super(CFConv, self).__init__()
         self.project_edge = paddle.nn.Sequential(
-            paddle.nn.Linear(in_features=edge_in_feats, out_features=hidden_feats),
+            paddle.nn.Linear(
+                in_features=edge_in_feats, out_features=hidden_feats
+            ),
             ShiftedSoftplus(),
-            paddle.nn.Linear(in_features=hidden_feats, out_features=hidden_feats),
+            paddle.nn.Linear(
+                in_features=hidden_feats, out_features=hidden_feats
+            ),
             ShiftedSoftplus(),
         )
-        self.project_node = paddle.nn.Linear(in_features=node_in_feats, out_features=hidden_feats)
+        self.project_node = paddle.nn.Linear(
+            in_features=node_in_feats, out_features=hidden_feats
+        )
         self.project_out = paddle.nn.Sequential(
             paddle.nn.Linear(in_features=hidden_feats, out_features=out_feats),
             ShiftedSoftplus(),
@@ -114,21 +121,21 @@ class CFConv(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The graph.
-        node_feats : torch.Tensor or pair of torch.Tensor
-            The input node features. If a torch.Tensor is given, it represents the input
+        node_feats : paddle.Tensor or pair of paddle.Tensor
+            The input node features. If a paddle.Tensor is given, it represents the input
             node feature of shape :math:`(N, D_{in})` where :math:`D_{in}` is size of
             input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, which is the case for bipartite graph,
+            If a pair of paddle.Tensor is given, which is the case for bipartite graph,
             the pair must contain two tensors of shape :math:`(N_{src}, D_{in_{src}})` and
             :math:`(N_{dst}, D_{in_{dst}})` separately for the source and destination nodes.
 
-        edge_feats : torch.Tensor
+        edge_feats : paddle.Tensor
             The input edge feature of shape :math:`(E, edge_in_feats)`
             where :math:`E` is the number of edges.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output node feature of shape :math:`(N_{out}, out_feats)`
             where :math:`N_{out}` is the number of destination nodes.
         """

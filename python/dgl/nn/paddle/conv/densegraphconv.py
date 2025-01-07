@@ -1,6 +1,6 @@
 import paddle
 
-"""Torch Module for DenseGraphConv"""
+"""Paddle Module for DenseGraphConv"""
 
 
 class DenseGraphConv(paddle.nn.Layer):
@@ -37,7 +37,7 @@ class DenseGraphConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import DenseGraphConv
     >>>
     >>> feat = th.ones(6, 10)
@@ -59,17 +59,23 @@ class DenseGraphConv(paddle.nn.Layer):
 
     See also
     --------
-    `GraphConv <https://docs.dgl.ai/api/python/nn.pytorch.html#graphconv>`__
+    `GraphConv <https://docs.dgl.ai/api/python/nn.paddle.html#graphconv>`__
     """
 
-    def __init__(self, in_feats, out_feats, norm="both", bias=True, activation=None):
+    def __init__(
+        self, in_feats, out_feats, norm="both", bias=True, activation=None
+    ):
         super(DenseGraphConv, self).__init__()
         self._in_feats = in_feats
         self._out_feats = out_feats
         self._norm = norm
-        self.weight = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.empty(shape=[in_feats, out_feats]))
+        self.weight = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.empty(shape=[in_feats, out_feats])
+        )
         if bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feats)
+            )
         else:
             self.register_buffer(name="bias", tensor=None)
         self.reset_parameters()
@@ -88,19 +94,19 @@ class DenseGraphConv(paddle.nn.Layer):
 
         Parameters
         ----------
-        adj : torch.Tensor
+        adj : paddle.Tensor
             The adjacency matrix of the graph to apply Graph Convolution on, when
             applied to a unidirectional bipartite graph, ``adj`` should be of shape
             should be of shape :math:`(N_{out}, N_{in})`; when applied to a homo
             graph, ``adj`` should be of shape :math:`(N, N)`. In both cases,
             a row represents a destination node while a column represents a source
             node.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
         """

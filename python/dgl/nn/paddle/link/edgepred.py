@@ -1,4 +1,5 @@
 """Predictor for edges in homogeneous graphs."""
+
 import paddle
 
 
@@ -49,7 +50,7 @@ class EdgePredictor(paddle.nn.Layer):
     Examples
     --------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import EdgePredictor
     >>> num_nodes = 2
     >>> num_edges = 3
@@ -64,41 +65,41 @@ class EdgePredictor(paddle.nn.Layer):
 
     >>> predictor = EdgePredictor('dot')
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 1])
+    (3, 1)
     >>> predictor = EdgePredictor('dot', in_feats, out_feats=3)
     >>> predictor.reset_parameters()
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 3])
+    (3, 3)
 
     Case2: cosine similarity
 
     >>> predictor = EdgePredictor('cos')
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 1])
+    (3, 1)
     >>> predictor = EdgePredictor('cos', in_feats, out_feats=3)
     >>> predictor.reset_parameters()
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 3])
+    (3, 3)
 
     Case3: elementwise product
 
     >>> predictor = EdgePredictor('ele')
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 4])
+    (3, 4)
     >>> predictor = EdgePredictor('ele', in_feats, out_feats=3)
     >>> predictor.reset_parameters()
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 3])
+    (3, 3)
 
     Case4: concatenation
 
     >>> predictor = EdgePredictor('cat')
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 8])
+    (3, 8)
     >>> predictor = EdgePredictor('cat', in_feats, out_feats=3)
     >>> predictor.reset_parameters()
     >>> predictor(h_src, h_dst).shape
-    torch.Size([3, 3])
+    (3, 3)
     """
 
     def __init__(self, op, in_feats=None, out_feats=None, bias=False):
@@ -115,7 +116,9 @@ class EdgePredictor(paddle.nn.Layer):
                 in_feats = 1
             elif op == "cat":
                 in_feats = 2 * in_feats
-            self.linear = paddle.nn.Linear(in_features=in_feats, out_features=out_feats, bias_attr=bias)
+            self.linear = paddle.nn.Linear(
+                in_features=in_feats, out_features=out_feats, bias_attr=bias
+            )
         else:
             self.linear = None
 
@@ -138,25 +141,29 @@ class EdgePredictor(paddle.nn.Layer):
 
         Parameters
         ----------
-        h_src : torch.Tensor
+        h_src : paddle.Tensor
             Source node features. The tensor is of shape :math:`(E, D_{in})`,
             where :math:`E` is the number of edges/node pairs, and :math:`D_{in}`
             is the input feature size.
-        h_dst : torch.Tensor
+        h_dst : paddle.Tensor
             Destination node features. The tensor is of shape :math:`(E, D_{in})`,
             where :math:`E` is the number of edges/node pairs, and :math:`D_{in}`
             is the input feature size.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output features.
         """
         if self.op == "dot":
             N, D = tuple(h_src.shape)
-            h = paddle.bmm(x=h_src.view(N, 1, D), y=h_dst.view(N, D, 1)).squeeze(axis=-1)
+            h = paddle.bmm(
+                x=h_src.view(N, 1, D), y=h_dst.view(N, D, 1)
+            ).squeeze(axis=-1)
         elif self.op == "cos":
-            h = paddle.nn.functional.cosine_similarity(x1=h_src, x2=h_dst).unsqueeze(axis=-1)
+            h = paddle.nn.functional.cosine_similarity(
+                x1=h_src, x2=h_dst
+            ).unsqueeze(axis=-1)
         elif self.op == "ele":
             h = h_src * h_dst
         else:

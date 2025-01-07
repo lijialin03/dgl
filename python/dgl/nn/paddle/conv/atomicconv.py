@@ -1,4 +1,5 @@
-"""Torch Module for Atomic Convolution Layer"""
+"""Paddle Module for Atomic Convolution Layer"""
+
 import numpy as np
 import paddle
 
@@ -44,16 +45,24 @@ class RadialPooling(paddle.nn.Layer):
         :math:`\\gamma_k` in the equations above. K for the number of radial filters.
     """
 
-    def __init__(self, interaction_cutoffs, rbf_kernel_means, rbf_kernel_scaling):
+    def __init__(
+        self, interaction_cutoffs, rbf_kernel_means, rbf_kernel_scaling
+    ):
         super(RadialPooling, self).__init__()
-        self.interaction_cutoffs = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=interaction_cutoffs.reshape(-1, 1, 1), trainable=True
+        self.interaction_cutoffs = (
+            paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=interaction_cutoffs.reshape(-1, 1, 1), trainable=True
+            )
         )
-        self.rbf_kernel_means = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=rbf_kernel_means.reshape(-1, 1, 1), trainable=True
+        self.rbf_kernel_means = (
+            paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=rbf_kernel_means.reshape(-1, 1, 1), trainable=True
+            )
         )
-        self.rbf_kernel_scaling = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=rbf_kernel_scaling.reshape(-1, 1, 1), trainable=True
+        self.rbf_kernel_scaling = (
+            paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=rbf_kernel_scaling.reshape(-1, 1, 1), trainable=True
+            )
         )
 
     def forward(self, distances):
@@ -73,9 +82,13 @@ class RadialPooling(paddle.nn.Layer):
         Float32 tensor of shape (K, E, 1)
             Transformed edge distances. K for the number of radial filters.
         """
-        scaled_euclidean_distance = -self.rbf_kernel_scaling * (distances - self.rbf_kernel_means) ** 2
+        scaled_euclidean_distance = (
+            -self.rbf_kernel_scaling * (distances - self.rbf_kernel_means) ** 2
+        )
         rbf_kernel_results = paddle.exp(x=scaled_euclidean_distance)
-        cos_values = 0.5 * (paddle.cos(x=np.pi * distances / self.interaction_cutoffs) + 1)
+        cos_values = 0.5 * (
+            paddle.cos(x=np.pi * distances / self.interaction_cutoffs) + 1
+        )
         cutoff_values = paddle.where(
             condition=distances <= self.interaction_cutoffs,
             x=cos_values,
@@ -103,7 +116,11 @@ def msg_func(edges):
         radial filters and T for the number of features to use
         (types of atomic number in the paper).
     """
-    return {"m": paddle.einsum("ij,ik->ijk", edges.src["hv"], edges.data["he"]).view(len(edges), -1)}
+    return {
+        "m": paddle.einsum(
+            "ij,ik->ijk", edges.src["hv"], edges.data["he"]
+        ).view(len(edges), -1)
+    }
 
 
 def reduce_func(nodes):
@@ -201,7 +218,7 @@ class AtomicConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import AtomicConv
 
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -239,8 +256,10 @@ class AtomicConv(paddle.nn.Layer):
             self.features_to_use = None
         else:
             self.num_channels = len(features_to_use)
-            self.features_to_use = paddle.base.framework.EagerParamBase.from_tensor(
-                tensor=features_to_use, trainable=False
+            self.features_to_use = (
+                paddle.base.framework.EagerParamBase.from_tensor(
+                    tensor=features_to_use, trainable=False
+                )
             )
 
     def forward(self, graph, feat, distances):

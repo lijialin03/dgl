@@ -1,4 +1,5 @@
-"""Torch Module for NNConv layer"""
+"""Paddle Module for NNConv layer"""
+
 import paddle
 
 from .... import function as fn
@@ -45,7 +46,7 @@ class NNConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import NNConv
 
     >>> # Case 1: Homogeneous graph
@@ -102,7 +103,9 @@ class NNConv(paddle.nn.Layer):
         elif aggregator_type == "max":
             self.reducer = fn.max
         else:
-            raise KeyError("Aggregator type {} not recognized: ".format(aggregator_type))
+            raise KeyError(
+                "Aggregator type {} not recognized: ".format(aggregator_type)
+            )
         self._aggre_type = aggregator_type
         if residual:
             if self._in_dst_feats != out_feats:
@@ -116,7 +119,9 @@ class NNConv(paddle.nn.Layer):
         else:
             self.register_buffer(name="res_fc", tensor=None)
         if bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feats)
+            )
         else:
             self.register_buffer(name="bias", tensor=None)
         self.reset_parameters()
@@ -148,26 +153,30 @@ class NNConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
+        feat : paddle.Tensor or pair of paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`N`
             is the number of nodes of the graph and :math:`D_{in}` is the
             input feature size.
-        efeat : torch.Tensor
+        efeat : paddle.Tensor
             The edge feature of shape :math:`(E, *)`, which should fit the input
             shape requirement of ``edge_func``. :math:`E` is the number of edges
             of the graph.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is the output feature size.
         """
         with graph.local_scope():
             feat_src, feat_dst = expand_as_pair(feat, graph)
             graph.srcdata["h"] = feat_src.unsqueeze(axis=-1)
-            graph.edata["w"] = self.edge_func(efeat).view(-1, self._in_src_feats, self._out_feats)
-            graph.update_all(fn.u_mul_e("h", "w", "m"), self.reducer("m", "neigh"))
+            graph.edata["w"] = self.edge_func(efeat).view(
+                -1, self._in_src_feats, self._out_feats
+            )
+            graph.update_all(
+                fn.u_mul_e("h", "w", "m"), self.reducer("m", "neigh")
+            )
             rst = graph.dstdata["neigh"].sum(axis=1)
             if self.res_fc is not None:
                 rst = rst + self.res_fc(feat_dst)

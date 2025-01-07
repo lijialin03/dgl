@@ -65,23 +65,37 @@ class LapPosEncoder(paddle.nn.Layer):
         self.model_type = model_type
         self.linear = paddle.nn.Linear(in_features=2, out_features=dim)
         if self.model_type == "Transformer":
-            encoder_layer = paddle.nn.TransformerEncoderLayer(d_model=dim, nhead=n_head, batch_first=True)
-            self.pe_encoder = paddle.nn.TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layer)
+            encoder_layer = paddle.nn.TransformerEncoderLayer(
+                d_model=dim, nhead=n_head, batch_first=True
+            )
+            self.pe_encoder = paddle.nn.TransformerEncoder(
+                encoder_layer=encoder_layer, num_layers=num_layer
+            )
         elif self.model_type == "DeepSet":
             layers = []
             if num_layer == 1:
                 layers.append(paddle.nn.ReLU())
             else:
-                self.linear = paddle.nn.Linear(in_features=2, out_features=2 * dim)
+                self.linear = paddle.nn.Linear(
+                    in_features=2, out_features=2 * dim
+                )
                 layers.append(paddle.nn.ReLU())
                 for _ in range(num_layer - 2):
-                    layers.append(paddle.nn.Linear(in_features=2 * dim, out_features=2 * dim))
+                    layers.append(
+                        paddle.nn.Linear(
+                            in_features=2 * dim, out_features=2 * dim
+                        )
+                    )
                     layers.append(paddle.nn.ReLU())
-                layers.append(paddle.nn.Linear(in_features=2 * dim, out_features=dim))
+                layers.append(
+                    paddle.nn.Linear(in_features=2 * dim, out_features=dim)
+                )
                 layers.append(paddle.nn.ReLU())
             self.pe_encoder = paddle.nn.Sequential(*layers)
         else:
-            raise ValueError(f"model_type '{model_type}' is not allowed, must be 'Transformer' or 'DeepSet'.")
+            raise ValueError(
+                f"model_type '{model_type}' is not allowed, must be 'Transformer' or 'DeepSet'."
+            )
         if batch_norm:
             self.raw_norm = paddle.nn.BatchNorm1D(num_features=k)
         else:
@@ -89,15 +103,25 @@ class LapPosEncoder(paddle.nn.Layer):
         if num_post_layer > 0:
             layers = []
             if num_post_layer == 1:
-                layers.append(paddle.nn.Linear(in_features=dim, out_features=dim))
+                layers.append(
+                    paddle.nn.Linear(in_features=dim, out_features=dim)
+                )
                 layers.append(paddle.nn.ReLU())
             else:
-                layers.append(paddle.nn.Linear(in_features=dim, out_features=2 * dim))
+                layers.append(
+                    paddle.nn.Linear(in_features=dim, out_features=2 * dim)
+                )
                 layers.append(paddle.nn.ReLU())
                 for _ in range(num_post_layer - 2):
-                    layers.append(paddle.nn.Linear(in_features=2 * dim, out_features=2 * dim))
+                    layers.append(
+                        paddle.nn.Linear(
+                            in_features=2 * dim, out_features=2 * dim
+                        )
+                    )
                     layers.append(paddle.nn.ReLU())
-                layers.append(paddle.nn.Linear(in_features=2 * dim, out_features=dim))
+                layers.append(
+                    paddle.nn.Linear(in_features=2 * dim, out_features=dim)
+                )
                 layers.append(paddle.nn.ReLU())
             self.post_mlp = paddle.nn.Sequential(*layers)
         else:
@@ -121,16 +145,18 @@ class LapPosEncoder(paddle.nn.Layer):
             where :math:`N` is the number of nodes in the input graph,
             :math:`d` is :attr:`dim`.
         """
-        pos_encoding = paddle.concat(x=(eigvecs.unsqueeze(axis=2), eigvals.unsqueeze(axis=2)), axis=2).astype(
-            dtype="float32"
-        )
+        pos_encoding = paddle.concat(
+            x=(eigvecs.unsqueeze(axis=2), eigvals.unsqueeze(axis=2)), axis=2
+        ).astype(dtype="float32")
         empty_mask = paddle.isnan(x=pos_encoding)
         pos_encoding[empty_mask] = 0
         if self.raw_norm:
             pos_encoding = self.raw_norm(pos_encoding)
         pos_encoding = self.linear(pos_encoding)
         if self.model_type == "Transformer":
-            pos_encoding = self.pe_encoder(src=pos_encoding, src_key_padding_mask=empty_mask[:, :, 1])
+            pos_encoding = self.pe_encoder(
+                src=pos_encoding, src_key_padding_mask=empty_mask[:, :, 1]
+            )
         else:
             pos_encoding = self.pe_encoder(pos_encoding)
         pos_encoding[empty_mask[:, :, 1]] = 0

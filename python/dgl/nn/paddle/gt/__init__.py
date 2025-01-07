@@ -1,4 +1,5 @@
-"""Torch modules for Graph Transformer."""
+"""Paddle modules for Graph Transformer."""
+
 from .biased_mha import BiasedMHA  # noqa: F401
 from .degree_encoder import DegreeEncoder  # noqa: F401
 from .egt import EGTLayer  # noqa: F401

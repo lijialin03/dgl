@@ -1,4 +1,5 @@
 """Modules that transforms between graphs and between graph and tensors."""
+
 import paddle
 
 from ...backend.paddle.utils import transpose_aux_func
@@ -52,11 +53,11 @@ class KNNGraph(paddle.nn.Layer):
     --------
     The following example uses PyTorch backend.
 
-    >>> import torch
-    >>> from dgl.nn.pytorch.factory import KNNGraph
+    >>> import paddle
+    >>> from dgl.nn.paddle.factory import KNNGraph
     >>>
     >>> kg = KNNGraph(2)
-    >>> x = torch.tensor([[0,1],
+    >>> x = paddle.to_tensor([[0,1],
                           [1,2],
                           [1,3],
                           [100, 101],
@@ -138,7 +139,9 @@ class KNNGraph(paddle.nn.Layer):
         DGLGraph
             A DGLGraph without features.
         """
-        return knn_graph(x, self.k, algorithm=algorithm, dist=dist, exclude_self=exclude_self)
+        return knn_graph(
+            x, self.k, algorithm=algorithm, dist=dist, exclude_self=exclude_self
+        )
 
 
 class SegmentedKNNGraph(paddle.nn.Layer):
@@ -166,11 +169,11 @@ class SegmentedKNNGraph(paddle.nn.Layer):
     --------
     The following example uses PyTorch backend.
 
-    >>> import torch
-    >>> from dgl.nn.pytorch.factory import SegmentedKNNGraph
+    >>> import paddle
+    >>> from dgl.nn.paddle.factory import SegmentedKNNGraph
     >>>
     >>> kg = SegmentedKNNGraph(2)
-    >>> x = torch.tensor([[0,1],
+    >>> x = paddle.to_tensor([[0,1],
     ...                   [1,2],
     ...                   [1,3],
     ...                   [100, 101],
@@ -310,9 +313,9 @@ class RadiusGraph(paddle.nn.Layer):
     The following examples uses PyTorch backend.
 
     >>> import dgl
-    >>> from dgl.nn.pytorch.factory import RadiusGraph
+    >>> from dgl.nn.paddle.factory import RadiusGraph
 
-    >>> x = torch.tensor([[0.0, 0.0, 1.0],
+    >>> x = paddle.to_tensor([[0.0, 0.0, 1.0],
     ...                   [1.0, 0.5, 0.5],
     ...                   [0.5, 0.2, 0.2],
     ...                   [0.3, 0.2, 0.4]])
@@ -324,7 +327,7 @@ class RadiusGraph(paddle.nn.Layer):
     When :attr:`get_distances` is True, forward pass returns the radius graph and
     distances for the corresponding edges.
 
-    >>> x = torch.tensor([[0.0, 0.0, 1.0],
+    >>> x = paddle.to_tensor([[0.0, 0.0, 1.0],
     ...                   [1.0, 0.5, 0.5],
     ...                   [0.5, 0.2, 0.2],
     ...                   [0.3, 0.2, 0.4]])
@@ -375,8 +378,10 @@ class RadiusGraph(paddle.nn.Layer):
         -------
         DGLGraph
             The constructed graph. The node IDs are in the same order as :attr:`x`.
-        torch.Tensor, optional
+        paddle.Tensor, optional
             The distances for the edges in the constructed graph. The distances
             are in the same order as edge IDs.
         """
-        return radius_graph(x, self.r, self.p, self.self_loop, self.compute_mode, get_distances)
+        return radius_graph(
+            x, self.r, self.p, self.self_loop, self.compute_mode, get_distances
+        )

@@ -1,4 +1,5 @@
-"""Torch Module for SubgraphX"""
+"""Paddle Module for SubgraphX"""
+
 import math
 
 import networkx as nx
@@ -133,7 +134,9 @@ class SubgraphX(paddle.nn.Layer):
             neighbors = paddle.concat(x=[in_neighbors, out_neighbors]).tolist()
             local_region = list(set(local_region + neighbors))
         split_point = num_nodes
-        coalition_space = list(set(local_region) - set(subgraph_nodes)) + [split_point]
+        coalition_space = list(set(local_region) - set(subgraph_nodes)) + [
+            split_point
+        ]
         marginal_contributions = []
         device = self.feat.place
         for _ in range(self.shapley_steps):
@@ -177,13 +180,19 @@ class SubgraphX(paddle.nn.Layer):
         subg = node_subgraph(self.graph, mcts_node.nodes)
         node_degrees = subg.out_degrees() + subg.in_degrees()
         k = min(subg.num_nodes(), self.num_child)
-        chosen_nodes = paddle.topk(k=k, largest=self.high2low, x=node_degrees).indices
+        chosen_nodes = paddle.topk(
+            k=k, largest=self.high2low, x=node_degrees
+        ).indices
         mcts_children_maps = dict()
         for node in chosen_nodes:
             new_subg = remove_nodes(subg, node.to(subg.idtype), store_ids=True)
             nx_graph = to_networkx(new_subg.cpu())
-            largest_cc_nids = list(max(nx.weakly_connected_components(nx_graph), key=len))
-            largest_cc_nids = new_subg.ndata[NID][largest_cc_nids].astype(dtype="int64")
+            largest_cc_nids = list(
+                max(nx.weakly_connected_components(nx_graph), key=len)
+            )
+            largest_cc_nids = new_subg.ndata[NID][largest_cc_nids].astype(
+                dtype="int64"
+            )
             largest_cc_nids = (
                 paddle.sort(x=subg.ndata[NID][largest_cc_nids]),
                 paddle.argsort(x=subg.ndata[NID][largest_cc_nids]),
@@ -198,7 +207,9 @@ class SubgraphX(paddle.nn.Layer):
         mcts_node.children = list(mcts_children_maps.values())
         for child_mcts_node in mcts_node.children:
             if child_mcts_node.immediate_reward == 0:
-                child_mcts_node.immediate_reward = self.shapley(child_mcts_node.nodes)
+                child_mcts_node.immediate_reward = self.shapley(
+                    child_mcts_node.nodes
+                )
         return mcts_node.children
 
     def mcts_rollout(self, mcts_node):
@@ -222,7 +233,10 @@ class SubgraphX(paddle.nn.Layer):
         chosen_child = max(
             children_nodes,
             key=lambda c: c.total_reward / max(c.num_visit, 1)
-            + self.coef * c.immediate_reward * children_visit_sum_sqrt / (1 + c.num_visit),
+            + self.coef
+            * c.immediate_reward
+            * children_visit_sum_sqrt
+            / (1 + c.num_visit),
         )
         reward = self.mcts_rollout(chosen_child)
         chosen_child.num_visit += 1
@@ -253,9 +267,9 @@ class SubgraphX(paddle.nn.Layer):
         Examples
         --------
 
-        >>> import torch
-        >>> import torch.nn as nn
-        >>> import torch.nn.functional as F
+        >>> import paddle
+        >>> import paddle.nn as nn
+        >>> import paddle.nn.functional as F
         >>> from dgl.data import GINDataset
         >>> from dgl.dataloading import GraphDataLoader
         >>> from dgl.nn import GraphConv, AvgPooling, SubgraphX
@@ -281,7 +295,7 @@ class SubgraphX(paddle.nn.Layer):
         >>> feat_size = data[0][0].ndata['attr'].shape[1]
         >>> model = Model(feat_size, data.gclasses)
         >>> criterion = nn.CrossEntropyLoss()
-        >>> optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        >>> optimizer = paddle.optimizer.Adam(model.parameters(), learning_rate=1e-2)
         >>> for bg, labels in dataloader:
         ...     logits = model(bg, bg.ndata['attr'])
         ...     loss = criterion(logits, labels)
@@ -311,7 +325,9 @@ class SubgraphX(paddle.nn.Layer):
         self.mcts_node_maps[str(root)] = root
         for i in range(self.num_rollouts):
             if self.log:
-                print(f"Rollout {i}/{self.num_rollouts},{len(self.mcts_node_maps)} subgraphs have been explored.")
+                print(
+                    f"Rollout {i}/{self.num_rollouts},{len(self.mcts_node_maps)} subgraphs have been explored."
+                )
             self.mcts_rollout(root)
         best_leaf = None
         best_immediate_reward = float("-inf")
@@ -406,19 +422,38 @@ class HeteroSubgraphX(paddle.nn.Layer):
         float
             Shapley value
         """
-        local_regions = {ntype: nodes.tolist() for ntype, nodes in subgraph_nodes.items()}
+        local_regions = {
+            ntype: nodes.tolist() for ntype, nodes in subgraph_nodes.items()
+        }
         for _ in range(self.num_hops - 1):
             for c_etype in self.graph.canonical_etypes:
                 src_ntype, _, dst_ntype = c_etype
-                if src_ntype not in local_regions or dst_ntype not in local_regions:
+                if (
+                    src_ntype not in local_regions
+                    or dst_ntype not in local_regions
+                ):
                     continue
-                in_neighbors, _ = self.graph.in_edges(local_regions[dst_ntype], etype=c_etype)
-                _, out_neighbors = self.graph.out_edges(local_regions[src_ntype], etype=c_etype)
-                local_regions[src_ntype] = list(set(local_regions[src_ntype] + in_neighbors.tolist()))
-                local_regions[dst_ntype] = list(set(local_regions[dst_ntype] + out_neighbors.tolist()))
+                in_neighbors, _ = self.graph.in_edges(
+                    local_regions[dst_ntype], etype=c_etype
+                )
+                _, out_neighbors = self.graph.out_edges(
+                    local_regions[src_ntype], etype=c_etype
+                )
+                local_regions[src_ntype] = list(
+                    set(local_regions[src_ntype] + in_neighbors.tolist())
+                )
+                local_regions[dst_ntype] = list(
+                    set(local_regions[dst_ntype] + out_neighbors.tolist())
+                )
         split_point = self.graph.num_nodes()
         coalition_space = {
-            ntype: (list(set(local_regions[ntype]) - set(subgraph_nodes[ntype].tolist())) + [split_point])
+            ntype: (
+                list(
+                    set(local_regions[ntype])
+                    - set(subgraph_nodes[ntype].tolist())
+                )
+                + [split_point]
+            )
             for ntype in subgraph_nodes.keys()
         }
         marginal_contributions = []
@@ -428,20 +463,36 @@ class HeteroSubgraphX(paddle.nn.Layer):
                 permuted_space = np.random.permutation(nodes)
                 split_idx = int(np.where(permuted_space == split_point)[0])
                 selected_node_map[ntype] = permuted_space[:split_idx]
-            exclude_mask = {ntype: paddle.ones(shape=self.graph.num_nodes(ntype)) for ntype in self.graph.ntypes}
+            exclude_mask = {
+                ntype: paddle.ones(shape=self.graph.num_nodes(ntype))
+                for ntype in self.graph.ntypes
+            }
             for ntype, region in local_regions.items():
                 exclude_mask[ntype][region] = 0.0
             for ntype, selected_nodes in selected_node_map.items():
                 exclude_mask[ntype][selected_nodes] = 1.0
-            include_mask = {ntype: exclude_mask[ntype].clone() for ntype in self.graph.ntypes}
+            include_mask = {
+                ntype: exclude_mask[ntype].clone()
+                for ntype in self.graph.ntypes
+            }
             for ntype, subgn in subgraph_nodes.items():
                 exclude_mask[ntype][subgn] = 1.0
             exclude_feat = {
-                ntype: (self.feat[ntype] * exclude_mask[ntype].unsqueeze(axis=1).to(self.feat[ntype].place))
+                ntype: (
+                    self.feat[ntype]
+                    * exclude_mask[ntype]
+                    .unsqueeze(axis=1)
+                    .to(self.feat[ntype].place)
+                )
                 for ntype in self.graph.ntypes
             }
             include_feat = {
-                ntype: (self.feat[ntype] * include_mask[ntype].unsqueeze(axis=1).to(self.feat[ntype].place))
+                ntype: (
+                    self.feat[ntype]
+                    * include_mask[ntype]
+                    .unsqueeze(axis=1)
+                    .to(self.feat[ntype].place)
+                )
                 for ntype in self.graph.ntypes
             }
             with paddle.no_grad():
@@ -472,7 +523,10 @@ class HeteroSubgraphX(paddle.nn.Layer):
         if len(mcts_node.children) > 0:
             return mcts_node.children
         subg = node_subgraph(self.graph, mcts_node.nodes)
-        node_degrees_map = {ntype: paddle.zeros(shape=subg.num_nodes(ntype)) for ntype in subg.ntypes}
+        node_degrees_map = {
+            ntype: paddle.zeros(shape=subg.num_nodes(ntype))
+            for ntype in subg.ntypes
+        }
         for c_etype in subg.canonical_etypes:
             src_ntype, _, dst_ntype = c_etype
             node_degrees_map[src_ntype] += subg.out_degrees(etype=c_etype)
@@ -484,7 +538,9 @@ class HeteroSubgraphX(paddle.nn.Layer):
         ]
         node_degrees = paddle.stack(x=[v for _, v in node_degrees_list])
         k = min(subg.num_nodes(), self.num_child)
-        chosen_node_indicies = paddle.topk(k=k, largest=self.high2low, x=node_degrees).indices
+        chosen_node_indicies = paddle.topk(
+            k=k, largest=self.high2low, x=node_degrees
+        ).indices
         chosen_nodes = [node_degrees_list[i][0] for i in chosen_node_indicies]
         mcts_children_maps = dict()
         for ntype, node in chosen_nodes:
@@ -492,20 +548,38 @@ class HeteroSubgraphX(paddle.nn.Layer):
             if new_subg.num_edges() > 0:
                 new_subg_homo = to_homogeneous(new_subg)
                 nx_graph = to_networkx(new_subg_homo.cpu())
-                largest_cc_nids = list(max(nx.weakly_connected_components(nx_graph), key=len))
+                largest_cc_nids = list(
+                    max(nx.weakly_connected_components(nx_graph), key=len)
+                )
                 largest_cc_homo = node_subgraph(new_subg_homo, largest_cc_nids)
-                largest_cc_hetero = to_heterogeneous(largest_cc_homo, new_subg.ntypes, new_subg.etypes)
+                largest_cc_hetero = to_heterogeneous(
+                    largest_cc_homo, new_subg.ntypes, new_subg.etypes
+                )
                 cc_nodes = {
                     ntype: subg.ndata[NID][ntype][
-                        new_subg.ndata[NID][ntype][new_subg_homo.ndata[NID][largest_cc_homo.ndata[NID][indicies]]]
+                        new_subg.ndata[NID][ntype][
+                            new_subg_homo.ndata[NID][
+                                largest_cc_homo.ndata[NID][indicies]
+                            ]
+                        ]
                     ]
                     for ntype, indicies in largest_cc_hetero.ndata[NID].items()
                 }
             else:
-                available_ntypes = [ntype for ntype in new_subg.ntypes if new_subg.num_nodes(ntype) > 0]
+                available_ntypes = [
+                    ntype
+                    for ntype in new_subg.ntypes
+                    if new_subg.num_nodes(ntype) > 0
+                ]
                 chosen_ntype = np.random.choice(available_ntypes)
-                chosen_node = subg.ndata[NID][chosen_ntype][np.random.choice(new_subg.nodes[chosen_ntype].data[NID])]
-                cc_nodes = {chosen_ntype: paddle.to_tensor(data=[chosen_node], place=subg.place)}
+                chosen_node = subg.ndata[NID][chosen_ntype][
+                    np.random.choice(new_subg.nodes[chosen_ntype].data[NID])
+                ]
+                cc_nodes = {
+                    chosen_ntype: paddle.to_tensor(
+                        data=[chosen_node], place=subg.place
+                    )
+                }
             if str(cc_nodes) not in self.mcts_node_maps:
                 child_mcts_node = MCTSNode(cc_nodes)
                 self.mcts_node_maps[str(child_mcts_node)] = child_mcts_node
@@ -516,7 +590,9 @@ class HeteroSubgraphX(paddle.nn.Layer):
         mcts_node.children = list(mcts_children_maps.values())
         for child_mcts_node in mcts_node.children:
             if child_mcts_node.immediate_reward == 0:
-                child_mcts_node.immediate_reward = self.shapley(child_mcts_node.nodes)
+                child_mcts_node.immediate_reward = self.shapley(
+                    child_mcts_node.nodes
+                )
         return mcts_node.children
 
     def mcts_rollout(self, mcts_node):
@@ -532,7 +608,10 @@ class HeteroSubgraphX(paddle.nn.Layer):
         float
             Reward for visiting the node this time
         """
-        if sum(len(nodes) for nodes in mcts_node.nodes.values()) <= self.node_min:
+        if (
+            sum(len(nodes) for nodes in mcts_node.nodes.values())
+            <= self.node_min
+        ):
             return mcts_node.immediate_reward
         children_nodes = self.get_mcts_children(mcts_node)
         children_visit_sum = sum([child.num_visit for child in children_nodes])
@@ -540,7 +619,10 @@ class HeteroSubgraphX(paddle.nn.Layer):
         chosen_child = max(
             children_nodes,
             key=lambda c: c.total_reward / max(c.num_visit, 1)
-            + self.coef * c.immediate_reward * children_visit_sum_sqrt / (1 + c.num_visit),
+            + self.coef
+            * c.immediate_reward
+            * children_visit_sum_sqrt
+            / (1 + c.num_visit),
         )
         reward = self.mcts_rollout(chosen_child)
         chosen_child.num_visit += 1
@@ -577,9 +659,9 @@ class HeteroSubgraphX(paddle.nn.Layer):
 
         >>> import dgl
         >>> import dgl.function as fn
-        >>> import torch as th
-        >>> import torch.nn as nn
-        >>> import torch.nn.functional as F
+        >>> import paddle as th
+        >>> import paddle.nn as nn
+        >>> import paddle.nn.functional as F
         >>> from dgl.nn import HeteroSubgraphX
 
         >>> class Model(nn.Module):
@@ -649,7 +731,9 @@ class HeteroSubgraphX(paddle.nn.Layer):
         self.mcts_node_maps[str(root)] = root
         for i in range(self.num_rollouts):
             if self.log:
-                print(f"Rollout {i}/{self.num_rollouts}, {len(self.mcts_node_maps)} subgraphs have been explored.")
+                print(
+                    f"Rollout {i}/{self.num_rollouts}, {len(self.mcts_node_maps)} subgraphs have been explored."
+                )
             self.mcts_rollout(root)
         best_leaf = None
         best_immediate_reward = float("-inf")

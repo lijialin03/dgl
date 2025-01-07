@@ -1,4 +1,5 @@
 """Path Encoder"""
+
 import paddle
 
 
@@ -24,7 +25,7 @@ class PathEncoder(paddle.nn.Layer):
 
     Examples
     --------
-    >>> import torch as th
+    >>> import paddle as th
     >>> import dgl
     >>> from dgl.nn import PathEncoder
     >>> from dgl import shortest_dist
@@ -41,7 +42,7 @@ class PathEncoder(paddle.nn.Layer):
     >>> path_encoder = PathEncoder(2, 16, num_heads=8)
     >>> out = path_encoder(dist.unsqueeze(0), path_data.unsqueeze(0))
     >>> print(out.shape)
-    torch.Size([1, 4, 4, 8])
+    (1, 4, 4, 8)
     """
 
     def __init__(self, max_len, feat_dim, num_heads=1):
@@ -49,7 +50,9 @@ class PathEncoder(paddle.nn.Layer):
         self.max_len = max_len
         self.feat_dim = feat_dim
         self.num_heads = num_heads
-        self.embedding_table = paddle.nn.Embedding(num_embeddings=max_len * num_heads, embedding_dim=feat_dim)
+        self.embedding_table = paddle.nn.Embedding(
+            num_embeddings=max_len * num_heads, embedding_dim=feat_dim
+        )
 
     def forward(self, dist, path_data):
         """
@@ -66,16 +69,20 @@ class PathEncoder(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             Return attention bias as path encoding, of shape
             :math:`(B, N, N, H)`, where :math:`B` is the batch size of
             the input graph, :math:`N` is the maximum number of nodes, and
             :math:`H` is :attr:`num_heads`.
         """
         shortest_distance = paddle.clip(x=dist, min=1, max=self.max_len)
-        edge_embedding = self.embedding_table.weight.reshape(self.max_len, self.num_heads, -1)
+        edge_embedding = self.embedding_table.weight.reshape(
+            self.max_len, self.num_heads, -1
+        )
         path_encoding = paddle.divide(
-            x=paddle.einsum("bxyld,lhd->bxyh", path_data, edge_embedding).transpose(perm=[3, 0, 1, 2]),
+            x=paddle.einsum(
+                "bxyld,lhd->bxyh", path_data, edge_embedding
+            ).transpose(perm=[3, 0, 1, 2]),
             y=paddle.to_tensor(shortest_distance),
         ).transpose(perm=[1, 2, 3, 0])
         return path_encoding

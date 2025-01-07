@@ -1,4 +1,5 @@
-"""Torch Module for Topology Adaptive Graph Convolutional layer"""
+"""Paddle Module for Topology Adaptive Graph Convolutional layer"""
+
 import paddle
 
 from .... import function as fn
@@ -32,14 +33,14 @@ class TAGConv(paddle.nn.Layer):
 
     Attributes
     ----------
-    lin : torch.Module
+    lin : paddle.Module
         The learnable linear module.
 
     Example
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import TAGConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -94,30 +95,34 @@ class TAGConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`D_{in}`
             is size of input feature, :math:`N` is the number of nodes.
-        edge_weight: torch.Tensor, optional
+        edge_weight: paddle.Tensor, optional
             edge_weight to use in the message passing process. This is equivalent to
             using weighted adjacency matrix in the equation above, and
             :math:`\\tilde{D}^{-1/2}\\tilde{A} \\tilde{D}^{-1/2}`
-            is based on :class:`dgl.nn.pytorch.conv.graphconv.EdgeWeightNorm`.
+            is based on :class:`dgl.nn.paddle.conv.graphconv.EdgeWeightNorm`.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
         """
         with graph.local_scope():
             assert graph.is_homogeneous, "Graph is not homogeneous"
             if edge_weight is None:
-                norm = paddle.pow(x=graph.in_degrees().to(feat).clip(min=1), y=-0.5)
+                norm = paddle.pow(
+                    x=graph.in_degrees().to(feat).clip(min=1), y=-0.5
+                )
                 shp = tuple(norm.shape) + (1,) * (feat.dim() - 1)
                 norm = paddle.reshape(x=norm, shape=shp).to(feat.place)
             msg_func = fn.copy_u("h", "m")
             if edge_weight is not None:
-                graph.edata["_edge_weight"] = EdgeWeightNorm("both")(graph, edge_weight)
+                graph.edata["_edge_weight"] = EdgeWeightNorm("both")(
+                    graph, edge_weight
+                )
                 msg_func = fn.u_mul_e("h", "_edge_weight", "m")
             fstack = [feat]
             for _ in range(self._k):

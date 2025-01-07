@@ -36,7 +36,11 @@ def cpu():
 def tensor(data, dtype=None):
     if isinstance(data, numbers.Number):
         data = [data]
-    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], paddle.Tensor):
+    if (
+        isinstance(data, list)
+        and len(data) > 0
+        and isinstance(data[0], paddle.Tensor)
+    ):
         if data[0].ndim == 0:
             return paddle.stack(x=data)
     if isinstance(data, paddle.Tensor):
@@ -61,8 +65,12 @@ def get_preferred_sparse_format():
 def sparse_matrix(data, index, shape, force_format=False):
     fmt = index[0]
     if fmt != "coo":
-        raise TypeError("Pytorch backend only supports COO format. But got %s." % fmt)
-    spmat = paddle.sparse.sparse_coo_tensor(indices=index[1], values=data, shape=shape)
+        raise TypeError(
+            "Paddle backend only supports COO format. But got %s." % fmt
+        )
+    spmat = paddle.sparse.sparse_coo_tensor(
+        indices=index[1], values=data, shape=shape
+    )
     return spmat, None
 
 
@@ -225,7 +233,9 @@ def repeat(input, repeats, dim):
 
 
 def gather_row(data, row_index):
-    return paddle.index_select(x=data, axis=0, index=row_index.astype(dtype="int64"))
+    return paddle.index_select(
+        x=data, axis=0, index=row_index.astype(dtype="int64")
+    )
 
 
 def slice_axis(data, axis, begin, end):
@@ -234,8 +244,14 @@ def slice_axis(data, axis, begin, end):
 
 
 def take(data, indices, dim):
-    new_shape = tuple(data.shape)[:dim] + tuple(indices.shape) + tuple(data.shape)[dim + 1 :]
-    return paddle.index_select(x=data, axis=dim, index=indices.view(-1)).view(new_shape)
+    new_shape = (
+        tuple(data.shape)[:dim]
+        + tuple(indices.shape)
+        + tuple(data.shape)[dim + 1 :]
+    )
+    return paddle.index_select(x=data, axis=dim, index=indices.view(-1)).view(
+        new_shape
+    )
 
 
 def narrow_row(x, start, stop):
@@ -269,7 +285,9 @@ def reshape(input, shape):
 
 
 def swapaxes(input, axis1, axis2):
-    return paddle.transpose(x=input, perm=transpose_aux_func(input.ndim, axis1, axis2))
+    return paddle.transpose(
+        x=input, perm=transpose_aux_func(input.ndim, axis1, axis2)
+    )
 
 
 def empty(shape, dtype, ctx):
@@ -374,7 +392,9 @@ def count_nonzero(input):
 def unique(input, return_inverse=False, return_counts=False):
     if input.dtype == "bool":
         input = input.astype("int8")
-    return paddle.unique(x=input, return_inverse=return_inverse, return_counts=return_counts)
+    return paddle.unique(
+        x=input, return_inverse=return_inverse, return_counts=return_counts
+    )
 
 
 def full_1d(length, fill_value, dtype, ctx):
@@ -382,7 +402,9 @@ def full_1d(length, fill_value, dtype, ctx):
 
 
 def nonzero_1d(input):
-    paddle.utils.try_import("warnings").warn("Now, the return shape is inconsistent with torch when as_tuple is True")
+    paddle.utils.try_import("warnings").warn(
+        "Now, the return shape is inconsistent with paddle when as_tuple is True"
+    )
     x = paddle.nonzero(x=input, as_tuple=False).squeeze()
     return x if x.dim() == 1 else x.view(-1)
 
@@ -425,14 +447,17 @@ def zerocopy_to_dgl_ndarray(data):
 def zerocopy_to_dgl_ndarray_for_write(input):
     if input.numel() > 0:
         assert input.is_contiguous(), (
-            "Cannot convert non-contiguous tensors " "to dgl ndarray for write. Call Tensor.contiguous() first."
+            "Cannot convert non-contiguous tensors "
+            "to dgl ndarray for write. Call Tensor.contiguous() first."
         )
     return zerocopy_to_dgl_ndarray(input)
 
 
 def zerocopy_from_dgl_ndarray(data):
     if tuple(data.shape) == (0,):
-        return paddle.to_tensor(data=[], dtype=data.dtype, place=to_backend_ctx(data.ctx))
+        return paddle.to_tensor(
+            data=[], dtype=data.dtype, place=to_backend_ctx(data.ctx)
+        )
     elif len(tuple(data.shape)) == 0 or builtins.min(tuple(data.shape)) == 0:
         return paddle.empty(shape=tuple(data.shape), dtype=data.dtype)
     else:
@@ -454,8 +479,14 @@ def attach_grad(x):
 
 
 def backward(x, head_gradient=None):
-    if head_gradient is not None and tuple(head_gradient.shape)[0] == 1 and len(tuple(head_gradient.shape)) == 1:
-        head_gradient = paddle.to_tensor(data=head_gradient.item()).to(head_gradient.place)
+    if (
+        head_gradient is not None
+        and tuple(head_gradient.shape)[0] == 1
+        and len(tuple(head_gradient.shape)) == 1
+    ):
+        head_gradient = paddle.to_tensor(data=head_gradient.item()).to(
+            head_gradient.place
+        )
     x.backward(grad_tensor=head_gradient)
 
 

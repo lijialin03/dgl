@@ -1,4 +1,5 @@
-"""Torch Module for APPNPConv"""
+"""Paddle Module for APPNPConv"""
+
 import paddle
 
 from .... import function as fn
@@ -32,7 +33,7 @@ class APPNPConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import APPNPConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -71,27 +72,31 @@ class APPNPConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, *)`. :math:`N` is the
             number of nodes, and :math:`*` could be of any shape.
-        edge_weight: torch.Tensor, optional
+        edge_weight: paddle.Tensor, optional
             edge_weight to use in the message passing process. This is equivalent to
             using weighted adjacency matrix in the equation above, and
             :math:`\\tilde{D}^{-1/2}\\tilde{A} \\tilde{D}^{-1/2}`
-            is based on :class:`dgl.nn.pytorch.conv.graphconv.EdgeWeightNorm`.
+            is based on :class:`dgl.nn.paddle.conv.graphconv.EdgeWeightNorm`.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, *)` where :math:`*`
             should be the same as input shape.
         """
         with graph.local_scope():
             if edge_weight is None:
-                src_norm = paddle.pow(x=graph.out_degrees().to(feat).clip(min=1), y=-0.5)
+                src_norm = paddle.pow(
+                    x=graph.out_degrees().to(feat).clip(min=1), y=-0.5
+                )
                 shp = tuple(src_norm.shape) + (1,) * (feat.dim() - 1)
                 src_norm = paddle.reshape(x=src_norm, shape=shp).to(feat.place)
-                dst_norm = paddle.pow(x=graph.in_degrees().to(feat).clip(min=1), y=-0.5)
+                dst_norm = paddle.pow(
+                    x=graph.in_degrees().to(feat).clip(min=1), y=-0.5
+                )
                 shp = tuple(dst_norm.shape) + (1,) * (feat.dim() - 1)
                 dst_norm = paddle.reshape(x=dst_norm, shape=shp).to(feat.place)
             else:
@@ -101,7 +106,11 @@ class APPNPConv(paddle.nn.Layer):
                 if edge_weight is None:
                     feat = feat * src_norm
                 graph.ndata["h"] = feat
-                w = paddle.ones(shape=[graph.num_edges(), 1]) if edge_weight is None else edge_weight
+                w = (
+                    paddle.ones(shape=[graph.num_edges(), 1])
+                    if edge_weight is None
+                    else edge_weight
+                )
                 graph.edata["w"] = self.edge_drop(w).to(feat.place)
                 graph.update_all(fn.u_mul_e("h", "w", "m"), fn.sum("m", "h"))
                 feat = graph.ndata.pop("h")

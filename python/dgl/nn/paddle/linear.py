@@ -1,4 +1,5 @@
 """Various commonly used linear modules"""
+
 import math
 
 import paddle
@@ -64,26 +65,28 @@ class TypedLinear(paddle.nn.Layer):
     No regularization.
 
     >>> from dgl.nn import TypedLinear
-    >>> import torch
+    >>> import paddle
     >>>
-    >>> x = torch.randn(100, 32)
-    >>> x_type = torch.randint(0, 5, (100,))
+    >>> x = paddle.randn(100, 32)
+    >>> x_type = paddle.randint(0, 5, (100,))
     >>> m = TypedLinear(32, 64, 5)
     >>> y = m(x, x_type)
     >>> print(y.shape)
-    torch.Size([100, 64])
+    (100, 64)
 
     With basis regularization
 
-    >>> x = torch.randn(100, 32)
-    >>> x_type = torch.randint(0, 5, (100,))
+    >>> x = paddle.randn(100, 32)
+    >>> x_type = paddle.randint(0, 5, (100,))
     >>> m = TypedLinear(32, 64, 5, regularizer='basis', num_bases=4)
     >>> y = m(x, x_type)
     >>> print(y.shape)
-    torch.Size([100, 64])
+    (100, 64)
     """
 
-    def __init__(self, in_size, out_size, num_types, regularizer=None, num_bases=None):
+    def __init__(
+        self, in_size, out_size, num_types, regularizer=None, num_bases=None
+    ):
         super().__init__()
         self.in_size = in_size
         self.out_size = out_size
@@ -94,7 +97,9 @@ class TypedLinear(paddle.nn.Layer):
             )
         elif regularizer == "basis":
             if num_bases is None:
-                raise ValueError('Missing "num_bases" for basis regularization.')
+                raise ValueError(
+                    'Missing "num_bases" for basis regularization.'
+                )
             self.W = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.empty(shape=[num_bases, in_size, out_size])
             )
@@ -106,7 +111,9 @@ class TypedLinear(paddle.nn.Layer):
             if num_bases is None:
                 raise ValueError('Missing "num_bases" for bdd regularization.')
             if in_size % num_bases != 0 or out_size % num_bases != 0:
-                raise ValueError("Input and output sizes must be divisible by num_bases.")
+                raise ValueError(
+                    "Input and output sizes must be divisible by num_bases."
+                )
             self.submat_in = in_size // num_bases
             self.submat_out = out_size // num_bases
             self.W = paddle.base.framework.EagerParamBase.from_tensor(
@@ -119,7 +126,9 @@ class TypedLinear(paddle.nn.Layer):
             )
             self.num_bases = num_bases
         else:
-            raise ValueError(f'Supported regularizer options: "basis", "bdd", but got {regularizer}')
+            raise ValueError(
+                f'Supported regularizer options: "basis", "bdd", but got {regularizer}'
+            )
         self.regularizer = regularizer
         self.reset_parameters()
 
@@ -139,7 +148,9 @@ class TypedLinear(paddle.nn.Layer):
                 )
                 init_Uniform(self.W)
                 init_XavierUniform = paddle.nn.initializer.XavierUniform(
-                    gain=paddle.nn.initializer.calculate_gain(nonlinearity="relu")
+                    gain=paddle.nn.initializer.calculate_gain(
+                        nonlinearity="relu"
+                    )
                 )
                 init_XavierUniform(self.coeff)
             elif self.regularizer == "bdd":
@@ -149,7 +160,9 @@ class TypedLinear(paddle.nn.Layer):
                 )
                 init_Uniform(self.W)
             else:
-                raise ValueError(f'Supported regularizer options: "basis", "bdd", but got {self.regularizer}')
+                raise ValueError(
+                    f'Supported regularizer options: "basis", "bdd", but got {self.regularizer}'
+                )
 
     def get_weight(self):
         """Get type-wise weight"""
@@ -157,20 +170,24 @@ class TypedLinear(paddle.nn.Layer):
             return self.W
         elif self.regularizer == "basis":
             W = self.W.view(self.num_bases, self.in_size * self.out_size)
-            return (self.coeff @ W).view(self.num_types, self.in_size, self.out_size)
+            return (self.coeff @ W).view(
+                self.num_types, self.in_size, self.out_size
+            )
         elif self.regularizer == "bdd":
             return self.W
         else:
-            raise ValueError(f'Supported regularizer options: "basis", "bdd", but got {self.regularizer}')
+            raise ValueError(
+                f'Supported regularizer options: "basis", "bdd", but got {self.regularizer}'
+            )
 
     def forward(self, x, x_type, sorted_by_type=False):
         """Forward computation.
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : paddle.Tensor
             A 2D input tensor. Shape: (N, D1)
-        x_type : torch.Tensor
+        x_type : paddle.Tensor
             A 1D integer tensor storing the type of the elements in ``x`` with one-to-one
             correspondenc. Shape: (N,)
         sorted_by_type : bool, optional
@@ -179,16 +196,20 @@ class TypedLinear(paddle.nn.Layer):
 
         Returns
         -------
-        y : torch.Tensor
+        y : paddle.Tensor
             The transformed output tensor. Shape: (N, D2)
         """
         w = self.get_weight()
         if self.regularizer == "bdd":
-            w = w.index_select(axis=0, index=x_type).view(-1, self.submat_in, self.submat_out)
+            w = w.index_select(axis=0, index=x_type).view(
+                -1, self.submat_in, self.submat_out
+            )
             x = x.view(-1, 1, self.submat_in)
             return paddle.bmm(x=x, y=w).view(-1, self.out_size)
         elif sorted_by_type:
-            pos_l = paddle.searchsorted(sorted_sequence=x_type, values=paddle.arange(end=self.num_types))
+            pos_l = paddle.searchsorted(
+                sorted_sequence=x_type, values=paddle.arange(end=self.num_types)
+            )
             pos_r = paddle.concat(
                 x=[
                     pos_l[1:],
@@ -202,7 +223,10 @@ class TypedLinear(paddle.nn.Layer):
 
     def __repr__(self):
         if self.regularizer is None:
-            return f"TypedLinear(in_size={self.in_size}, out_size={self.out_size}, " f"num_types={self.num_types})"
+            return (
+                f"TypedLinear(in_size={self.in_size}, out_size={self.out_size}, "
+                f"num_types={self.num_types})"
+            )
         else:
             return (
                 f"TypedLinear(in_size={self.in_size}, out_size={self.out_size}, "

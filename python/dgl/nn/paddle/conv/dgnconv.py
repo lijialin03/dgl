@@ -1,4 +1,5 @@
-"""Torch Module for Directional Graph Networks Convolution Layer"""
+"""Paddle Module for Directional Graph Networks Convolution Layer"""
+
 from functools import partial
 
 import paddle
@@ -18,7 +19,9 @@ def aggregate_dir_av(h, eig_s, eig_d, eig_idx):
                 paddle.abs(x=eig_s[:, :, eig_idx] - eig_d[:, :, eig_idx])
                 / (
                     paddle.sum(
-                        x=paddle.abs(x=eig_s[:, :, eig_idx] - eig_d[:, :, eig_idx]),
+                        x=paddle.abs(
+                            x=eig_s[:, :, eig_idx] - eig_d[:, :, eig_idx]
+                        ),
                         keepdim=True,
                         axis=1,
                     )
@@ -44,7 +47,9 @@ def aggregate_dir_dx(h, eig_s, eig_d, h_in, eig_idx):
         )
     ).unsqueeze(axis=-1)
     h_mod = paddle.multiply(x=h, y=paddle.to_tensor(eig_w))
-    return paddle.abs(x=paddle.sum(x=h_mod, axis=1) - paddle.sum(x=eig_w, axis=1) * h_in)
+    return paddle.abs(
+        x=paddle.sum(x=h_mod, axis=1) - paddle.sum(x=eig_w, axis=1) * h_in
+    )
 
 
 for k in range(1, 4):
@@ -58,7 +63,9 @@ class DGNConvTower(PNAConvTower):
     def message(self, edges):
         """message function for DGN layer"""
         if self.edge_feat_size > 0:
-            f = paddle.concat(x=[edges.src["h"], edges.dst["h"], edges.data["a"]], axis=-1)
+            f = paddle.concat(
+                x=[edges.src["h"], edges.dst["h"], edges.data["a"]], axis=-1
+            )
         else:
             f = paddle.concat(x=[edges.src["h"], edges.dst["h"]], axis=-1)
         return {
@@ -86,7 +93,11 @@ class DGNConvTower(PNAConvTower):
         h = paddle.concat(x=h, axis=1)
         h = paddle.concat(
             x=[
-                (SCALERS[scaler](h, D=degree, delta=self.delta) if scaler != "identity" else h)
+                (
+                    SCALERS[scaler](h, D=degree, delta=self.delta)
+                    if scaler != "identity"
+                    else h
+                )
                 for scaler in self.scalers
             ],
             axis=1,
@@ -172,7 +183,7 @@ class DGNConv(PNAConv):
     Example
     -------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import DGNConv
     >>> from dgl import LaplacianPE
     >>>
@@ -239,19 +250,19 @@ class DGNConv(PNAConv):
         ----------
         graph : DGLGraph
             The graph.
-        node_feat : torch.Tensor
+        node_feat : paddle.Tensor
             The input feature of shape :math:`(N, h_n)`. :math:`N` is the number of
             nodes, and :math:`h_n` must be the same as in_size.
-        edge_feat : torch.Tensor, optional
+        edge_feat : paddle.Tensor, optional
             The edge feature of shape :math:`(M, h_e)`. :math:`M` is the number of
             edges, and :math:`h_e` must be the same as edge_feat_size.
-        eig_vec : torch.Tensor, optional
+        eig_vec : paddle.Tensor, optional
             K smallest non-trivial eigenvectors of Graph Laplacian of shape :math:`(N, K)`.
             It is only required when :attr:`aggregators` contains directional aggregators.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output node feature of shape :math:`(N, h_n')` where :math:`h_n'`
             should be the same as out_size.
         """

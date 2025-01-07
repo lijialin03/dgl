@@ -1,4 +1,5 @@
 """Graphormer Layer"""
+
 import paddle
 
 from .biased_mha import BiasedMHA
@@ -36,7 +37,7 @@ class GraphormerLayer(paddle.nn.Layer):
 
     Examples
     --------
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GraphormerLayer
 
     >>> batch_size = 16
@@ -88,13 +89,13 @@ class GraphormerLayer(paddle.nn.Layer):
 
         Parameters
         ----------
-        nfeat : torch.Tensor
+        nfeat : paddle.Tensor
             A 3D input tensor. Shape: (batch_size, N, :attr:`feat_size`), where
             N is the maximum number of nodes.
-        attn_bias : torch.Tensor, optional
+        attn_bias : paddle.Tensor, optional
             The attention bias used for attention modification. Shape:
             (batch_size, N, N, :attr:`num_heads`).
-        attn_mask : torch.Tensor, optional
+        attn_mask : paddle.Tensor, optional
             The attention mask used for avoiding computation on invalid
             positions, where invalid positions are indicated by `True` values.
             Shape: (batch_size, N, N). Note: For rows corresponding to
@@ -103,7 +104,7 @@ class GraphormerLayer(paddle.nn.Layer):
 
         Returns
         -------
-        y : torch.Tensor
+        y : paddle.Tensor
             The output tensor. Shape: (batch_size, N, :attr:`feat_size`)
         """
         residual = nfeat

@@ -1,4 +1,5 @@
-"""Torch Module for Graph Isomorphism Network layer variant with edge features"""
+"""Paddle Module for Graph Isomorphism Network layer variant with edge features"""
+
 import paddle
 
 from .... import function as fn
@@ -29,19 +30,19 @@ class GINEConv(paddle.nn.Layer):
     --------
 
     >>> import dgl
-    >>> import torch
-    >>> import torch.nn as nn
+    >>> import paddle
+    >>> import paddle.nn as nn
     >>> from dgl.nn import GINEConv
 
     >>> g = dgl.graph(([0, 1, 2], [1, 1, 3]))
     >>> in_feats = 10
     >>> out_feats = 20
-    >>> nfeat = torch.randn(g.num_nodes(), in_feats)
-    >>> efeat = torch.randn(g.num_edges(), in_feats)
+    >>> nfeat = paddle.randn(g.num_nodes(), in_feats)
+    >>> efeat = paddle.randn(g.num_edges(), in_feats)
     >>> conv = GINEConv(nn.Linear(in_feats, out_feats))
     >>> res = conv(g, nfeat, efeat)
     >>> print(res.shape)
-    torch.Size([4, 20])
+    (4, 20)
     """
 
     def __init__(self, apply_func=None, init_eps=0, learn_eps=False):
@@ -59,7 +60,9 @@ class GINEConv(paddle.nn.Layer):
 
     def message(self, edges):
         """User-defined Message Function"""
-        return {"m": paddle.nn.functional.relu(x=edges.src["hn"] + edges.data["he"])}
+        return {
+            "m": paddle.nn.functional.relu(x=edges.src["hn"] + edges.data["he"])
+        }
 
     def forward(self, graph, node_feat, edge_feat):
         """Forward computation.
@@ -68,20 +71,20 @@ class GINEConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        node_feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, it is the input feature of shape :math:`(N, D_{in})` where
+        node_feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, it is the input feature of shape :math:`(N, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in})` and :math:`(N_{out}, D_{in})`.
             If ``apply_func`` is not None, :math:`D_{in}` should
             fit the input feature size requirement of ``apply_func``.
-        edge_feat : torch.Tensor
+        edge_feat : paddle.Tensor
             Edge feature. It is a tensor of shape :math:`(E, D_{in})` where :math:`E`
             is the number of edges.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where
             :math:`D_{out}` is the output feature size of ``apply_func``.
             If ``apply_func`` is None, :math:`D_{out}` should be the same

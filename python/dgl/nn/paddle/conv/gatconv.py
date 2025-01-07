@@ -1,4 +1,5 @@
-"""Torch modules for graph attention networks(GAT)."""
+"""Paddle modules for graph attention networks(GAT)."""
+
 import paddle
 
 from .... import function as fn
@@ -78,7 +79,7 @@ class GATConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GATConv
 
     >>> # Case 1: Homogeneous graph
@@ -166,10 +167,14 @@ class GATConv(paddle.nn.Layer):
                 bias_attr=False,
             )
         self.attn_l = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=paddle.empty(shape=(1, num_heads, out_feats), dtype="float32")
+            tensor=paddle.empty(
+                shape=(1, num_heads, out_feats), dtype="float32"
+            )
         )
         self.attn_r = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=paddle.empty(shape=(1, num_heads, out_feats), dtype="float32")
+            tensor=paddle.empty(
+                shape=(1, num_heads, out_feats), dtype="float32"
+            )
         )
         self.feat_drop = paddle.nn.Dropout(p=feat_drop)
         self.attn_drop = paddle.nn.Dropout(p=attn_drop)
@@ -190,7 +195,9 @@ class GATConv(paddle.nn.Layer):
             self.register_buffer(name="res_fc", tensor=None)
         if bias and not self.has_linear_res:
             self.bias = paddle.base.framework.EagerParamBase.from_tensor(
-                tensor=paddle.empty(shape=(num_heads * out_feats,), dtype="float32")
+                tensor=paddle.empty(
+                    shape=(num_heads * out_feats,), dtype="float32"
+                )
             )
             self.has_explicit_bias = True
         else:
@@ -258,22 +265,22 @@ class GATConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, *, D_{in})` where
+        feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, *, D_{in})` where
             :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, *, D_{in_{src}})` and :math:`(N_{out}, *, D_{in_{dst}})`.
-        edge_weight : torch.Tensor, optional
+        edge_weight : paddle.Tensor, optional
             A 1D tensor of edge weight values.  Shape: :math:`(|E|,)`.
         get_attention : bool, optional
             Whether to return the attention values. Default to False.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, *, H, D_{out})` where :math:`H`
             is the number of heads, and :math:`D_{out}` is size of output feature.
-        torch.Tensor, optional
+        paddle.Tensor, optional
             The attention values of shape :math:`(E, *, H, 1)`, where :math:`E` is the number of
             edges. This is returned only when :attr:`get_attention` is ``True``.
 
@@ -304,19 +311,31 @@ class GATConv(paddle.nn.Layer):
                 h_src = self.feat_drop(feat[0])
                 h_dst = self.feat_drop(feat[1])
                 if not hasattr(self, "fc_src"):
-                    feat_src = self.fc(h_src).view(*src_prefix_shape, self._num_heads, self._out_feats)
-                    feat_dst = self.fc(h_dst).view(*dst_prefix_shape, self._num_heads, self._out_feats)
+                    feat_src = self.fc(h_src).view(
+                        *src_prefix_shape, self._num_heads, self._out_feats
+                    )
+                    feat_dst = self.fc(h_dst).view(
+                        *dst_prefix_shape, self._num_heads, self._out_feats
+                    )
                 else:
-                    feat_src = self.fc_src(h_src).view(*src_prefix_shape, self._num_heads, self._out_feats)
-                    feat_dst = self.fc_dst(h_dst).view(*dst_prefix_shape, self._num_heads, self._out_feats)
+                    feat_src = self.fc_src(h_src).view(
+                        *src_prefix_shape, self._num_heads, self._out_feats
+                    )
+                    feat_dst = self.fc_dst(h_dst).view(
+                        *dst_prefix_shape, self._num_heads, self._out_feats
+                    )
             else:
                 src_prefix_shape = dst_prefix_shape = tuple(feat.shape)[:-1]
                 h_src = h_dst = self.feat_drop(feat)
-                feat_src = feat_dst = self.fc(h_src).view(*src_prefix_shape, self._num_heads, self._out_feats)
+                feat_src = feat_dst = self.fc(h_src).view(
+                    *src_prefix_shape, self._num_heads, self._out_feats
+                )
                 if graph.is_block:
                     feat_dst = feat_src[: graph.number_of_dst_nodes()]
                     h_dst = h_dst[: graph.number_of_dst_nodes()]
-                    dst_prefix_shape = (graph.number_of_dst_nodes(),) + dst_prefix_shape[1:]
+                    dst_prefix_shape = (
+                        graph.number_of_dst_nodes(),
+                    ) + dst_prefix_shape[1:]
             el = (feat_src * self.attn_l).sum(axis=-1).unsqueeze(axis=-1)
             er = (feat_dst * self.attn_r).sum(axis=-1).unsqueeze(axis=-1)
             graph.srcdata.update({"ft": feat_src, "el": el})
@@ -325,9 +344,13 @@ class GATConv(paddle.nn.Layer):
             e = self.leaky_relu(graph.edata.pop("e"))
             graph.edata["a"] = self.attn_drop(edge_softmax(graph, e))
             if edge_weight is not None:
-                graph.edata["a"] = graph.edata["a"] * edge_weight.tile(repeat_times=[1, self._num_heads, 1]).transpose(
+                graph.edata["a"] = graph.edata["a"] * edge_weight.tile(
+                    repeat_times=[1, self._num_heads, 1]
+                ).transpose(
                     perm=transpose_aux_func(
-                        edge_weight.tile(repeat_times=[1, self._num_heads, 1]).ndim,
+                        edge_weight.tile(
+                            repeat_times=[1, self._num_heads, 1]
+                        ).ndim,
                         0,
                         2,
                     )
@@ -335,10 +358,16 @@ class GATConv(paddle.nn.Layer):
             graph.update_all(fn.u_mul_e("ft", "a", "m"), fn.sum("m", "ft"))
             rst = graph.dstdata["ft"]
             if self.res_fc is not None:
-                resval = self.res_fc(h_dst).view(*dst_prefix_shape, -1, self._out_feats)
+                resval = self.res_fc(h_dst).view(
+                    *dst_prefix_shape, -1, self._out_feats
+                )
                 rst = rst + resval
             if self.has_explicit_bias:
-                rst = rst + self.bias.view(*((1,) * len(dst_prefix_shape)), self._num_heads, self._out_feats)
+                rst = rst + self.bias.view(
+                    *((1,) * len(dst_prefix_shape)),
+                    self._num_heads,
+                    self._out_feats
+                )
             if self.activation:
                 rst = self.activation(rst)
             if get_attention:

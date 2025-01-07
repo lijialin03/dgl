@@ -1,4 +1,5 @@
-"""Torch Module for PGExplainer"""
+"""Paddle Module for PGExplainer"""
+
 import math
 
 import paddle
@@ -91,7 +92,9 @@ class PGExplainer(paddle.nn.Layer):
             num_nodes = graph.num_nodes()
             num_edges = graph.num_edges()
             init_bias = self.init_bias
-            std = paddle.nn.initializer.calculate_gain(nonlinearity="relu") * math.sqrt(2.0 / (2 * num_nodes))
+            std = paddle.nn.initializer.calculate_gain(
+                nonlinearity="relu"
+            ) * math.sqrt(2.0 / (2 * num_nodes))
             self.edge_mask = paddle.randn(shape=num_edges) * std + init_bias
         else:
             self.edge_mask = edge_mask
@@ -140,17 +143,23 @@ class PGExplainer(paddle.nn.Layer):
             The function that returns the sum of the three loss components,
             which is a scalar tensor representing the total loss.
         """
-        target_prob = prob.take_along_axis(axis=-1, indices=ori_pred.unsqueeze(axis=-1), broadcast=False)
+        target_prob = prob.take_along_axis(
+            axis=-1, indices=ori_pred.unsqueeze(axis=-1), broadcast=False
+        )
         target_prob += 1e-06
         pred_loss = paddle.mean(x=-paddle.log(x=target_prob))
         edge_mask = self.sparse_mask_values
         if self.coff_budget <= 0:
             size_loss = self.coff_budget * paddle.sum(x=edge_mask)
         else:
-            size_loss = self.coff_budget * paddle.nn.functional.relu(x=paddle.sum(x=edge_mask) - self.coff_budget)
+            size_loss = self.coff_budget * paddle.nn.functional.relu(
+                x=paddle.sum(x=edge_mask) - self.coff_budget
+            )
         scale = 0.99
         edge_mask = self.edge_mask * (2 * scale - 1.0) + (1.0 - scale)
-        mask_ent = -edge_mask * paddle.log(x=edge_mask) - (1 - edge_mask) * paddle.log(x=1 - edge_mask)
+        mask_ent = -edge_mask * paddle.log(x=edge_mask) - (
+            1 - edge_mask
+        ) * paddle.log(x=1 - edge_mask)
         mask_ent_loss = self.coff_connect * paddle.mean(x=mask_ent)
         loss = pred_loss + size_loss + mask_ent_loss
         return loss
@@ -180,7 +189,9 @@ class PGExplainer(paddle.nn.Layer):
             bias = self.sample_bias
             random_noise = paddle.rand(shape=tuple(w.shape)).to(w.place)
             random_noise = bias + (1 - 2 * bias) * random_noise
-            gate_inputs = paddle.log(x=random_noise) - paddle.log(x=1.0 - random_noise)
+            gate_inputs = paddle.log(x=random_noise) - paddle.log(
+                x=1.0 - random_noise
+            )
             gate_inputs = (gate_inputs + w) / beta
             gate_inputs = paddle.nn.functional.sigmoid(x=gate_inputs)
         else:
@@ -207,12 +218,16 @@ class PGExplainer(paddle.nn.Layer):
         Tensor
             A scalar tensor representing the loss.
         """
-        assert self.graph_explanation, '"explain_graph" must be True when initializing the module.'
+        assert (
+            self.graph_explanation
+        ), '"explain_graph" must be True when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         pred = self.model(graph, feat, embed=False, **kwargs)
         pred = pred.argmax(axis=-1).data
-        prob, _ = self.explain_graph(graph, feat, temperature, training=True, **kwargs)
+        prob, _ = self.explain_graph(
+            graph, feat, temperature, training=True, **kwargs
+        )
         loss = self.loss(prob, pred)
         return loss
 
@@ -239,7 +254,9 @@ class PGExplainer(paddle.nn.Layer):
         Tensor
             A scalar tensor representing the loss.
         """
-        assert not self.graph_explanation, '"explain_graph" must be False when initializing the module.'
+        assert (
+            not self.graph_explanation
+        ), '"explain_graph" must be False when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         if isinstance(nodes, paddle.Tensor):
@@ -249,12 +266,16 @@ class PGExplainer(paddle.nn.Layer):
         prob, _, batched_graph, inverse_indices = self.explain_node(
             nodes, graph, feat, temperature, training=True, **kwargs
         )
-        pred = self.model(batched_graph, self.batched_feats, embed=False, **kwargs)
+        pred = self.model(
+            batched_graph, self.batched_feats, embed=False, **kwargs
+        )
         pred = pred.argmax(axis=-1).data
         loss = self.loss(prob[inverse_indices], pred[inverse_indices])
         return loss
 
-    def explain_graph(self, graph, feat, temperature=1.0, training=False, **kwargs):
+    def explain_graph(
+        self, graph, feat, temperature=1.0, training=False, **kwargs
+    ):
         """Learn and return an edge mask that plays a crucial role to
         explain the prediction made by the GNN for a graph. Also, return
         the prediction made with the edges chosen based on the edge mask.
@@ -287,8 +308,8 @@ class PGExplainer(paddle.nn.Layer):
         Examples
         --------
 
-        >>> import torch as th
-        >>> import torch.nn as nn
+        >>> import paddle as th
+        >>> import paddle.nn as nn
         >>> import dgl
         >>> from dgl.data import GINDataset
         >>> from dgl.dataloading import GraphDataLoader
@@ -322,7 +343,7 @@ class PGExplainer(paddle.nn.Layer):
         >>> feat_size = data[0][0].ndata['attr'].shape[1]
         >>> model = Model(feat_size, data.gclasses)
         >>> criterion = nn.CrossEntropyLoss()
-        >>> optimizer = th.optim.Adam(model.parameters(), lr=1e-2)
+        >>> optimizer = th.optim.Adam(model.parameters(), learning_rate=1e-2)
         >>> for bg, labels in dataloader:
         ...     preds = model(bg, bg.ndata['attr'])
         ...     loss = criterion(preds, labels)
@@ -336,7 +357,7 @@ class PGExplainer(paddle.nn.Layer):
         >>> # Train the explainer
         >>> # Define explainer temperature parameter
         >>> init_tmp, final_tmp = 5.0, 1.0
-        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), lr=0.01)
+        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), learning_rate=0.01)
         >>> for epoch in range(20):
         ...     tmp = float(init_tmp * np.power(final_tmp / init_tmp, epoch / 20))
         ...     for bg, labels in dataloader:
@@ -350,7 +371,9 @@ class PGExplainer(paddle.nn.Layer):
         >>> graph_feat = graph.ndata.pop("attr")
         >>> probs, edge_weight = explainer.explain_graph(graph, graph_feat)
         """
-        assert self.graph_explanation, '"explain_graph" must be True when initializing the module.'
+        assert (
+            self.graph_explanation
+        ), '"explain_graph" must be True when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         embed = self.model(graph, feat, embed=True, **kwargs)
@@ -361,7 +384,9 @@ class PGExplainer(paddle.nn.Layer):
         emb = paddle.concat(x=[col_emb, row_emb], axis=-1)
         emb = self.elayers(emb)
         values = emb.reshape(-1)
-        values = self.concrete_sample(values, beta=temperature, training=training)
+        values = self.concrete_sample(
+            values, beta=temperature, training=training
+        )
         self.sparse_mask_values = values
         reverse_eids = graph.edge_ids(row, col).astype(dtype="int64")
         edge_mask = (values + values[reverse_eids]) / 2
@@ -374,7 +399,9 @@ class PGExplainer(paddle.nn.Layer):
             self.clear_masks()
         return probs, edge_mask
 
-    def explain_node(self, nodes, graph, feat, temperature=1.0, training=False, **kwargs):
+    def explain_node(
+        self, nodes, graph, feat, temperature=1.0, training=False, **kwargs
+    ):
         """Learn and return an edge mask that plays a crucial role to
         explain the prediction made by the GNN for provided set of node IDs.
         Also, return the prediction made with the graph and edge mask.
@@ -417,10 +444,10 @@ class PGExplainer(paddle.nn.Layer):
 
         >>> import dgl
         >>> import numpy as np
-        >>> import torch
+        >>> import paddle
 
         >>> # Define the model
-        >>> class Model(torch.nn.Module):
+        >>> class Model(paddle.nn.Layer):
         ...     def __init__(self, in_feats, out_feats):
         ...         super().__init__()
         ...         self.conv1 = dgl.nn.GraphConv(in_feats, out_feats)
@@ -440,8 +467,8 @@ class PGExplainer(paddle.nn.Layer):
 
         >>> # Train the model
         >>> model = Model(features.shape[1], data.num_classes)
-        >>> criterion = torch.nn.CrossEntropyLoss()
-        >>> optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        >>> criterion = paddle.nn.CrossEntropyLoss()
+        >>> optimizer = paddle.optimizer.Adam(model.parameters(), learning_rate=1e-2)
         >>> for epoch in range(20):
         ...     logits = model(g, features)
         ...     loss = criterion(logits, labels)
@@ -457,7 +484,7 @@ class PGExplainer(paddle.nn.Layer):
         >>> # Train the explainer
         >>> # Define explainer temperature parameter
         >>> init_tmp, final_tmp = 5.0, 1.0
-        >>> optimizer_exp = torch.optim.Adam(explainer.parameters(), lr=0.01)
+        >>> optimizer_exp = paddle.optimizer.Adam(explainer.parameters(), learning_rate=0.01)
         >>> epochs = 10
         >>> for epoch in range(epochs):
         ...     tmp = float(init_tmp * np.power(final_tmp / init_tmp, epoch / epochs))
@@ -471,8 +498,12 @@ class PGExplainer(paddle.nn.Layer):
         ...     0, g, features
         ... )
         """
-        assert not self.graph_explanation, '"explain_graph" must be False when initializing the module.'
-        assert self.num_hops is not None, '"num_hops" must be provided when initializing the module.'
+        assert (
+            not self.graph_explanation
+        ), '"explain_graph" must be False when initializing the module.'
+        assert (
+            self.num_hops is not None
+        ), '"num_hops" must be provided when initializing the module.'
         if isinstance(nodes, paddle.Tensor):
             nodes = nodes.tolist()
         if isinstance(nodes, int):
@@ -482,7 +513,9 @@ class PGExplainer(paddle.nn.Layer):
         batched_graph = []
         batched_embed = []
         for node_id in nodes:
-            sg, inverse_indices = khop_in_subgraph(graph, node_id, self.num_hops)
+            sg, inverse_indices = khop_in_subgraph(
+                graph, node_id, self.num_hops
+            )
             sg.ndata["feat"] = feat[sg.ndata[NID].astype(dtype="int64")]
             sg.ndata["train"] = paddle.to_tensor(
                 data=[(nid in inverse_indices) for nid in sg.nodes()],
@@ -493,7 +526,9 @@ class PGExplainer(paddle.nn.Layer):
             col, row = sg.edges()
             col_emb = embed[col.astype(dtype="int64")]
             row_emb = embed[row.astype(dtype="int64")]
-            self_emb = embed[inverse_indices[0]].tile(repeat_times=[sg.num_edges(), 1])
+            self_emb = embed[inverse_indices[0]].tile(
+                repeat_times=[sg.num_edges(), 1]
+            )
             emb = paddle.concat(x=[col_emb, row_emb, self_emb], axis=-1)
             batched_embed.append(emb)
             batched_graph.append(sg)
@@ -501,16 +536,22 @@ class PGExplainer(paddle.nn.Layer):
         batched_embed = paddle.concat(x=batched_embed)
         batched_embed = self.elayers(batched_embed)
         values = batched_embed.reshape(-1)
-        values = self.concrete_sample(values, beta=temperature, training=training)
+        values = self.concrete_sample(
+            values, beta=temperature, training=training
+        )
         self.sparse_mask_values = values
         col, row = batched_graph.edges()
         reverse_eids = batched_graph.edge_ids(row, col).astype(dtype="int64")
         edge_mask = (values + values[reverse_eids]) / 2
         self.set_masks(batched_graph, edge_mask)
         batched_feats = batched_graph.ndata["feat"]
-        logits = self.model(batched_graph, batched_feats, edge_weight=self.edge_mask, **kwargs)
+        logits = self.model(
+            batched_graph, batched_feats, edge_weight=self.edge_mask, **kwargs
+        )
         probs = paddle.nn.functional.softmax(x=logits, axis=-1)
-        batched_inverse_indices = batched_graph.ndata["train"].nonzero().squeeze(axis=1)
+        batched_inverse_indices = (
+            batched_graph.ndata["train"].nonzero().squeeze(axis=1)
+        )
         if training:
             self.batched_feats = batched_feats
             probs = probs.data
@@ -597,21 +638,33 @@ class HeteroPGExplainer(PGExplainer):
         Tensor
             A scalar tensor representing the loss.
         """
-        assert not self.graph_explanation, '"explain_graph" must be False when initializing the module.'
+        assert (
+            not self.graph_explanation
+        ), '"explain_graph" must be False when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         prob, _, batched_graph, inverse_indices = self.explain_node(
             nodes, graph, feat, temperature, training=True, **kwargs
         )
-        pred = self.model(batched_graph, self.batched_feats, embed=False, **kwargs)
-        pred = {ntype: pred[ntype].argmax(axis=-1).data for ntype in pred.keys()}
+        pred = self.model(
+            batched_graph, self.batched_feats, embed=False, **kwargs
+        )
+        pred = {
+            ntype: pred[ntype].argmax(axis=-1).data for ntype in pred.keys()
+        }
         loss = self.loss(
-            paddle.concat(x=[prob[ntype][nid] for ntype, nid in inverse_indices.items()]),
-            paddle.concat(x=[pred[ntype][nid] for ntype, nid in inverse_indices.items()]),
+            paddle.concat(
+                x=[prob[ntype][nid] for ntype, nid in inverse_indices.items()]
+            ),
+            paddle.concat(
+                x=[pred[ntype][nid] for ntype, nid in inverse_indices.items()]
+            ),
         )
         return loss
 
-    def explain_graph(self, graph, feat, temperature=1.0, training=False, **kwargs):
+    def explain_graph(
+        self, graph, feat, temperature=1.0, training=False, **kwargs
+    ):
         """Learn and return an edge mask that plays a crucial role to
         explain the prediction made by the GNN for a graph. Also, return
         the prediction made with the edges chosen based on the edge mask.
@@ -648,8 +701,8 @@ class HeteroPGExplainer(PGExplainer):
         --------
 
         >>> import dgl
-        >>> import torch as th
-        >>> import torch.nn as nn
+        >>> import paddle as th
+        >>> import paddle.nn as nn
         >>> import numpy as np
 
         >>> # Define the model
@@ -709,7 +762,7 @@ class HeteroPGExplainer(PGExplainer):
         >>> # Train the explainer
         >>> # Define explainer temperature parameter
         >>> init_tmp, final_tmp = 5.0, 1.0
-        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), lr=0.01)
+        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), learning_rate=0.01)
         >>> for epoch in range(20):
         ...     tmp = float(init_tmp * np.power(final_tmp / init_tmp, epoch / 20))
         ...     loss = explainer.train_step(g, g.ndata["h"], tmp)
@@ -721,7 +774,9 @@ class HeteroPGExplainer(PGExplainer):
         >>> feat = g.ndata.pop("h")
         >>> probs, edge_mask = explainer.explain_graph(g, feat)
         """
-        assert self.graph_explanation, '"explain_graph" must be True when initializing the module.'
+        assert (
+            self.graph_explanation
+        ), '"explain_graph" must be True when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         embed = self.model(graph, feat, embed=True, **kwargs)
@@ -735,7 +790,9 @@ class HeteroPGExplainer(PGExplainer):
         emb = paddle.concat(x=[col_emb, row_emb], axis=-1)
         emb = self.elayers(emb)
         values = emb.reshape(-1)
-        values = self.concrete_sample(values, beta=temperature, training=training)
+        values = self.concrete_sample(
+            values, beta=temperature, training=training
+        )
         self.sparse_mask_values = values
         reverse_eids = homo_graph.edge_ids(row, col).astype(dtype="int64")
         edge_mask = (values + values[reverse_eids]) / 2
@@ -751,7 +808,9 @@ class HeteroPGExplainer(PGExplainer):
             self.clear_masks()
         return probs, hetero_edge_mask
 
-    def explain_node(self, nodes, graph, feat, temperature=1.0, training=False, **kwargs):
+    def explain_node(
+        self, nodes, graph, feat, temperature=1.0, training=False, **kwargs
+    ):
         """Learn and return an edge mask that plays a crucial role to
         explain the prediction made by the GNN for provided set of node IDs.
         Also, return the prediction made with the batched graph and edge mask.
@@ -798,8 +857,8 @@ class HeteroPGExplainer(PGExplainer):
         --------
 
         >>> import dgl
-        >>> import torch as th
-        >>> import torch.nn as nn
+        >>> import paddle as th
+        >>> import paddle.nn as nn
         >>> import numpy as np
 
         >>> # Define the model
@@ -853,7 +912,7 @@ class HeteroPGExplainer(PGExplainer):
         >>> # Train the explainer
         >>> # Define explainer temperature parameter
         >>> init_tmp, final_tmp = 5.0, 1.0
-        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), lr=0.01)
+        >>> optimizer_exp = th.optim.Adam(explainer.parameters(), learning_rate=0.01)
         >>> for epoch in range(20):
         ...     tmp = float(init_tmp * np.power(final_tmp / init_tmp, epoch / 20))
         ...     loss = explainer.train_step_node(
@@ -870,8 +929,12 @@ class HeteroPGExplainer(PGExplainer):
         ...     { "user": [0] }, g, feat
         ... )
         """
-        assert not self.graph_explanation, '"explain_graph" must be False when initializing the module.'
-        assert self.num_hops is not None, '"num_hops" must be provided when initializing the module.'
+        assert (
+            not self.graph_explanation
+        ), '"explain_graph" must be False when initializing the module.'
+        assert (
+            self.num_hops is not None
+        ), '"num_hops" must be provided when initializing the module.'
         self.model = self.model.to(graph.place)
         self.elayers = self.elayers.to(graph.place)
         batched_embed = []
@@ -881,15 +944,24 @@ class HeteroPGExplainer(PGExplainer):
             if isinstance(target_nids, paddle.Tensor):
                 target_nids = target_nids.tolist()
             for target_nid in target_nids:
-                sg, inverse_indices = khop_in_subgraph(graph, {target_ntype: target_nid}, self.num_hops)
+                sg, inverse_indices = khop_in_subgraph(
+                    graph, {target_ntype: target_nid}, self.num_hops
+                )
                 for sg_ntype in sg.ntypes:
-                    sg_feat = feat[sg_ntype][sg.ndata[NID][sg_ntype].astype(dtype="int64")]
+                    sg_feat = feat[sg_ntype][
+                        sg.ndata[NID][sg_ntype].astype(dtype="int64")
+                    ]
                     train_mask = [
-                        (sg_ntype in inverse_indices and node_id in inverse_indices[sg_ntype])
+                        (
+                            sg_ntype in inverse_indices
+                            and node_id in inverse_indices[sg_ntype]
+                        )
                         for node_id in sg.nodes(sg_ntype)
                     ]
                     sg.nodes[sg_ntype].data["feat"] = sg_feat
-                    sg.nodes[sg_ntype].data["train"] = paddle.to_tensor(data=train_mask, place=sg.place)
+                    sg.nodes[sg_ntype].data["train"] = paddle.to_tensor(
+                        data=train_mask, place=sg.place
+                    )
                 embed = self.model(sg, sg.ndata["feat"], embed=True, **kwargs)
                 for ntype in embed.keys():
                     sg.nodes[ntype].data["emb"] = embed[ntype].data
@@ -898,7 +970,9 @@ class HeteroPGExplainer(PGExplainer):
                 col, row = homo_sg.edges()
                 col_emb = homo_sg_embed[col.astype(dtype="int64")]
                 row_emb = homo_sg_embed[row.astype(dtype="int64")]
-                self_emb = homo_sg_embed[inverse_indices[target_ntype][0]].tile(repeat_times=[sg.num_edges(), 1])
+                self_emb = homo_sg_embed[inverse_indices[target_ntype][0]].tile(
+                    repeat_times=[sg.num_edges(), 1]
+                )
                 emb = paddle.concat(x=[col_emb, row_emb, self_emb], axis=-1)
                 batched_embed.append(emb)
                 batched_homo_graph.append(homo_sg)
@@ -908,10 +982,14 @@ class HeteroPGExplainer(PGExplainer):
         batched_embed = paddle.concat(x=batched_embed)
         batched_embed = self.elayers(batched_embed)
         values = batched_embed.reshape(-1)
-        values = self.concrete_sample(values, beta=temperature, training=training)
+        values = self.concrete_sample(
+            values, beta=temperature, training=training
+        )
         self.sparse_mask_values = values
         col, row = batched_homo_graph.edges()
-        reverse_eids = batched_homo_graph.edge_ids(row, col).astype(dtype="int64")
+        reverse_eids = batched_homo_graph.edge_ids(row, col).astype(
+            dtype="int64"
+        )
         edge_mask = (values + values[reverse_eids]) / 2
         self.set_masks(batched_homo_graph, edge_mask)
         hetero_edge_mask = self._edge_mask_to_heterogeneous(
@@ -919,11 +997,25 @@ class HeteroPGExplainer(PGExplainer):
             homograph=batched_homo_graph,
             heterograph=batched_hetero_graph,
         )
-        batched_feats = {ntype: batched_hetero_graph.nodes[ntype].data["feat"] for ntype in batched_hetero_graph.ntypes}
-        logits = self.model(batched_hetero_graph, batched_feats, edge_weight=hetero_edge_mask, **kwargs)
-        probs = {ntype: paddle.nn.functional.softmax(x=logits[ntype], axis=-1) for ntype in logits.keys()}
+        batched_feats = {
+            ntype: batched_hetero_graph.nodes[ntype].data["feat"]
+            for ntype in batched_hetero_graph.ntypes
+        }
+        logits = self.model(
+            batched_hetero_graph,
+            batched_feats,
+            edge_weight=hetero_edge_mask,
+            **kwargs
+        )
+        probs = {
+            ntype: paddle.nn.functional.softmax(x=logits[ntype], axis=-1)
+            for ntype in logits.keys()
+        }
         batched_inverse_indices = {
-            ntype: batched_hetero_graph.nodes[ntype].data["train"].nonzero().squeeze(axis=1)
+            ntype: batched_hetero_graph.nodes[ntype]
+            .data["train"]
+            .nonzero()
+            .squeeze(axis=1)
             for ntype in batched_hetero_graph.ntypes
         }
         if training:
@@ -961,6 +1053,10 @@ class HeteroPGExplainer(PGExplainer):
             A dict mapping node types (keys) to tensors of node ids (values)
         """
         return {
-            etype: edge_mask[(homograph.edata[ETYPE] == heterograph.get_etype_id(etype)).nonzero().squeeze(axis=1)]
+            etype: edge_mask[
+                (homograph.edata[ETYPE] == heterograph.get_etype_id(etype))
+                .nonzero()
+                .squeeze(axis=1)
+            ]
             for etype in heterograph.canonical_etypes
         }

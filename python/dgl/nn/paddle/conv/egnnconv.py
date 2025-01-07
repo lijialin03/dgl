@@ -1,4 +1,5 @@
-"""Torch Module for E(n) Equivariant Graph Convolutional Layer"""
+"""Paddle Module for E(n) Equivariant Graph Convolutional Layer"""
+
 import paddle
 
 from .... import function as fn
@@ -38,7 +39,7 @@ class EGNNConv(paddle.nn.Layer):
     Example
     -------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import EGNNConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -64,14 +65,18 @@ class EGNNConv(paddle.nn.Layer):
             act_fn,
         )
         self.node_mlp = paddle.nn.Sequential(
-            paddle.nn.Linear(in_features=in_size + hidden_size, out_features=hidden_size),
+            paddle.nn.Linear(
+                in_features=in_size + hidden_size, out_features=hidden_size
+            ),
             act_fn,
             paddle.nn.Linear(in_features=hidden_size, out_features=out_size),
         )
         self.coord_mlp = paddle.nn.Sequential(
             paddle.nn.Linear(in_features=hidden_size, out_features=hidden_size),
             act_fn,
-            paddle.nn.Linear(in_features=hidden_size, out_features=1, bias_attr=False),
+            paddle.nn.Linear(
+                in_features=hidden_size, out_features=1, bias_attr=False
+            ),
         )
 
     def message(self, edges):
@@ -105,22 +110,22 @@ class EGNNConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        node_feat : torch.Tensor
+        node_feat : paddle.Tensor
             The input feature of shape :math:`(N, h_n)`. :math:`N` is the number of
             nodes, and :math:`h_n` must be the same as in_size.
-        coord_feat : torch.Tensor
+        coord_feat : paddle.Tensor
             The coordinate feature of shape :math:`(N, h_x)`. :math:`N` is the
             number of nodes, and :math:`h_x` can be any positive integer.
-        edge_feat : torch.Tensor, optional
+        edge_feat : paddle.Tensor, optional
             The edge feature of shape :math:`(M, h_e)`. :math:`M` is the number of
             edges, and :math:`h_e` must be the same as edge_feat_size.
 
         Returns
         -------
-        node_feat_out : torch.Tensor
+        node_feat_out : paddle.Tensor
             The output node feature of shape :math:`(N, h_n')` where :math:`h_n'`
             is the same as out_size.
-        coord_feat_out: torch.Tensor
+        coord_feat_out: paddle.Tensor
             The output coordinate feature of shape :math:`(N, h_x)` where :math:`h_x`
             is the same as the input coordinate feature dimension.
         """
@@ -131,8 +136,12 @@ class EGNNConv(paddle.nn.Layer):
                 assert edge_feat is not None, "Edge features must be provided."
                 graph.edata["a"] = edge_feat
             graph.apply_edges(fn.u_sub_v("x", "x", "x_diff"))
-            graph.edata["radial"] = graph.edata["x_diff"].square().sum(axis=1).unsqueeze(axis=-1)
-            graph.edata["x_diff"] = graph.edata["x_diff"] / (graph.edata["radial"].sqrt() + 1e-30)
+            graph.edata["radial"] = (
+                graph.edata["x_diff"].square().sum(axis=1).unsqueeze(axis=-1)
+            )
+            graph.edata["x_diff"] = graph.edata["x_diff"] / (
+                graph.edata["radial"].sqrt() + 1e-30
+            )
             graph.apply_edges(self.message)
             graph.update_all(fn.copy_e("msg_x", "m"), fn.mean("m", "x_neigh"))
             graph.update_all(fn.copy_e("msg_h", "m"), fn.sum("m", "h_neigh"))

@@ -1,4 +1,5 @@
-"""Package for pytorch-specific NN modules."""
+"""Package for paddle-specific NN modules."""
+
 from .conv import *  # noqa: F403
 from .explain import *  # noqa: F403
 from .factory import *  # noqa: F403

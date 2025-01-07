@@ -1,4 +1,5 @@
-"""Torch Module for Attention-based Graph Neural Network layer"""
+"""Paddle Module for Attention-based Graph Neural Network layer"""
+
 import paddle
 
 from .... import function as fn
@@ -54,7 +55,7 @@ class AGNNConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import AGNNConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -72,7 +73,9 @@ class AGNNConv(paddle.nn.Layer):
         grad_fn=<BinaryReduceBackward>)
     """
 
-    def __init__(self, init_beta=1.0, learn_beta=True, allow_zero_in_degree=False):
+    def __init__(
+        self, init_beta=1.0, learn_beta=True, allow_zero_in_degree=False
+    ):
         super(AGNNConv, self).__init__()
         self._allow_zero_in_degree = allow_zero_in_degree
         if learn_beta:
@@ -110,16 +113,16 @@ class AGNNConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, *)` :math:`N` is the
             number of nodes, and :math:`*` could be of any shape.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, *)` and :math:`(N_{out}, *)`, the :math:`*` in the later
             tensor must equal the previous one.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, *)` where :math:`*`
             should be the same as input shape.
 
@@ -146,9 +149,13 @@ class AGNNConv(paddle.nn.Layer):
                     )
             feat_src, feat_dst = expand_as_pair(feat, graph)
             graph.srcdata["h"] = feat_src
-            graph.srcdata["norm_h"] = paddle.nn.functional.normalize(x=feat_src, p=2, axis=-1)
+            graph.srcdata["norm_h"] = paddle.nn.functional.normalize(
+                x=feat_src, p=2, axis=-1
+            )
             if isinstance(feat, tuple) or graph.is_block:
-                graph.dstdata["norm_h"] = paddle.nn.functional.normalize(x=feat_dst, p=2, axis=-1)
+                graph.dstdata["norm_h"] = paddle.nn.functional.normalize(
+                    x=feat_dst, p=2, axis=-1
+                )
             graph.apply_edges(fn.u_dot_v("norm_h", "norm_h", "cos"))
             cos = graph.edata.pop("cos")
             e = self.beta * cos

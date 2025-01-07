@@ -1,4 +1,5 @@
-"""Torch Module for GatedGCN layer"""
+"""Paddle Module for GatedGCN layer"""
+
 import paddle
 
 from .... import function as fn
@@ -43,8 +44,8 @@ class GatedGCNConv(paddle.nn.Layer):
     Example
     -------
     >>> import dgl
-    >>> import torch as th
-    >>> import torch.nn.functional as F
+    >>> import paddle as th
+    >>> import paddle.nn.functional as F
     >>> from dgl.nn import GatedGCNConv
 
     >>> num_nodes, num_edges = 8, 30
@@ -54,7 +55,7 @@ class GatedGCNConv(paddle.nn.Layer):
     >>> gatedGCN = GatedGCNConv(20, 12, 20)
     >>> new_node_feats, new_edge_feats = gatedGCN(graph, node_feats, edge_feats)
     >>> new_node_feats.shape, new_edge_feats.shape
-    (torch.Size([8, 20]), torch.Size([30, 20]))
+    ((8, 20), (30, 20))
 
     """
 
@@ -74,11 +75,21 @@ class GatedGCNConv(paddle.nn.Layer):
         self.residual = residual
         if input_feats != output_feats or edge_feats != output_feats:
             self.residual = False
-        self.A = paddle.nn.Linear(in_features=input_feats, out_features=output_feats, bias_attr=True)
-        self.B = paddle.nn.Linear(in_features=input_feats, out_features=output_feats, bias_attr=True)
-        self.D = paddle.nn.Linear(in_features=input_feats, out_features=output_feats, bias_attr=True)
-        self.E = paddle.nn.Linear(in_features=input_feats, out_features=output_feats, bias_attr=True)
-        self.C = paddle.nn.Linear(in_features=edge_feats, out_features=output_feats, bias_attr=True)
+        self.A = paddle.nn.Linear(
+            in_features=input_feats, out_features=output_feats, bias_attr=True
+        )
+        self.B = paddle.nn.Linear(
+            in_features=input_feats, out_features=output_feats, bias_attr=True
+        )
+        self.D = paddle.nn.Linear(
+            in_features=input_feats, out_features=output_feats, bias_attr=True
+        )
+        self.E = paddle.nn.Linear(
+            in_features=input_feats, out_features=output_feats, bias_attr=True
+        )
+        self.C = paddle.nn.Linear(
+            in_features=edge_feats, out_features=output_feats, bias_attr=True
+        )
         self.bn_node = paddle.nn.BatchNorm1D(num_features=output_feats)
         self.bn_edge = paddle.nn.BatchNorm1D(num_features=output_feats)
         self.activation = activation
@@ -94,21 +105,21 @@ class GatedGCNConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`N`
             is the number of nodes of the graph and :math:`D_{in}` is the
             input feature size.
-        edge_feat : torch.Tensor
+        edge_feat : paddle.Tensor
             The input edge feature of shape :math:`(E, D_{edge})`,
             where :math:`E` is the number of edges and :math:`D_{edge}`
             is the size of the edge features.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output node feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is the output feature size.
-        torch.Tensor
+        paddle.Tensor
             The output edge feature of shape :math:`(E, D_{out})` where :math:`D_{out}`
             is the output feature size.
         """
@@ -122,10 +133,16 @@ class GatedGCNConv(paddle.nn.Layer):
             graph.edata["Ce"] = self.C(edge_feat)
             graph.apply_edges(fn.u_add_v("Dh", "Eh", "DEh"))
             graph.edata["e"] = graph.edata["DEh"] + graph.edata["Ce"]
-            graph.edata["sigma"] = paddle.nn.functional.sigmoid(x=graph.edata["e"])
-            graph.update_all(fn.u_mul_e("Bh", "sigma", "m"), fn.sum("m", "sum_sigma_h"))
+            graph.edata["sigma"] = paddle.nn.functional.sigmoid(
+                x=graph.edata["e"]
+            )
+            graph.update_all(
+                fn.u_mul_e("Bh", "sigma", "m"), fn.sum("m", "sum_sigma_h")
+            )
             graph.update_all(fn.copy_e("sigma", "m"), fn.sum("m", "sum_sigma"))
-            graph.ndata["h"] = graph.ndata["Ah"] + graph.ndata["sum_sigma_h"] / (graph.ndata["sum_sigma"] + 1e-06)
+            graph.ndata["h"] = graph.ndata["Ah"] + graph.ndata[
+                "sum_sigma_h"
+            ] / (graph.ndata["sum_sigma"] + 1e-06)
             feat = graph.ndata["h"]
             edge_feat = graph.edata["e"]
             if self.batch_norm:

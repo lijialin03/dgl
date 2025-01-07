@@ -1,4 +1,5 @@
-"""Torch module for grouped reversible residual connections for GNNs"""
+"""Paddle module for grouped reversible residual connections for GNNs"""
+
 import gc
 from copy import deepcopy
 
@@ -7,7 +8,7 @@ import paddle
 
 
 class InvertibleCheckpoint(paddle.autograd.PyLayer):
-    """Extension of torch.autograd"""
+    """Extension of paddle.autograd"""
 
     @staticmethod
     def forward(ctx, fn, fn_inverse, num_inputs, *inputs_and_weights):
@@ -38,11 +39,15 @@ class InvertibleCheckpoint(paddle.autograd.PyLayer):
     @staticmethod
     def backward(ctx, *grad_outputs):
         if len(ctx.outputs) == 0:
-            raise RuntimeError("Trying to perform backward on the InvertibleCheckpoint for more than once.")
+            raise RuntimeError(
+                "Trying to perform backward on the InvertibleCheckpoint for more than once."
+            )
         inputs = ctx.inputs.pop()
         outputs = ctx.outputs.pop()
         with paddle.no_grad():
-            inputs_inverted = ctx.fn_inverse(*((inputs[0], outputs) + inputs[2:]))
+            inputs_inverted = ctx.fn_inverse(
+                *((inputs[0], outputs) + inputs[2:])
+            )
             del outputs
             gc.collect()
             x = inputs[1]
@@ -60,7 +65,11 @@ class InvertibleCheckpoint(paddle.autograd.PyLayer):
                 detached_inputs.append(element)
             detached_inputs = tuple(detached_inputs)
             temp_output = ctx.fn(*detached_inputs)
-        filtered_detached_inputs = tuple(filter(lambda x: getattr(x, "requires_grad", False), detached_inputs))
+        filtered_detached_inputs = tuple(
+            filter(
+                lambda x: getattr(x, "requires_grad", False), detached_inputs
+            )
+        )
         gradients = paddle.grad(
             outputs=(temp_output,),
             inputs=filtered_detached_inputs + ctx.weights,
@@ -115,8 +124,8 @@ class GroupRevRes(paddle.nn.Layer):
     --------
 
     >>> import dgl
-    >>> import torch
-    >>> import torch.nn as nn
+    >>> import paddle
+    >>> import paddle.nn as nn
     >>> from dgl.nn import GraphConv, GroupRevRes
 
     >>> class GNNLayer(nn.Module):
@@ -138,7 +147,7 @@ class GroupRevRes(paddle.nn.Layer):
     >>> feats = 32
     >>> groups = 2
     >>> g = dgl.rand_graph(num_nodes, num_edges)
-    >>> x = torch.randn(num_nodes, feats)
+    >>> x = paddle.randn(num_nodes, feats)
     >>> conv = GNNLayer(feats // groups)
     >>> model = GroupRevRes(conv, groups)
     >>> out = model(g, x)
@@ -161,7 +170,9 @@ class GroupRevRes(paddle.nn.Layer):
         else:
             chunked_args = list(
                 map(
-                    lambda arg: paddle.chunk(x=arg, chunks=self.groups, axis=-1),
+                    lambda arg: paddle.chunk(
+                        x=arg, chunks=self.groups, axis=-1
+                    ),
                     args,
                 )
             )
@@ -181,7 +192,9 @@ class GroupRevRes(paddle.nn.Layer):
         else:
             chunked_args = list(
                 map(
-                    lambda arg: paddle.chunk(x=arg, chunks=self.groups, axis=-1),
+                    lambda arg: paddle.chunk(
+                        x=arg, chunks=self.groups, axis=-1
+                    ),
                     args,
                 )
             )
@@ -204,7 +217,7 @@ class GroupRevRes(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The graph.
-        x : torch.Tensor
+        x : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})`, where :math:`D_{in}` is size
             of input feature, :math:`N` is the number of nodes.
         args
@@ -212,7 +225,7 @@ class GroupRevRes(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{in})`.
         """
         args = (g, x) + args
@@ -220,6 +233,9 @@ class GroupRevRes(paddle.nn.Layer):
             self._forward,
             self._inverse,
             len(args),
-            *(args + tuple([p for p in self.parameters() if not p.stop_gradient]))
+            *(
+                args
+                + tuple([p for p in self.parameters() if not p.stop_gradient])
+            )
         )
         return y

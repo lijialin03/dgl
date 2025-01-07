@@ -1,4 +1,5 @@
-"""Torch Module for Relational graph convolution layer"""
+"""Paddle Module for Relational graph convolution layer"""
+
 import paddle
 
 from .... import function as fn
@@ -77,7 +78,7 @@ class RelGraphConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import RelGraphConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -110,17 +111,23 @@ class RelGraphConv(paddle.nn.Layer):
         super().__init__()
         if regularizer is not None and num_bases is None:
             num_bases = num_rels
-        self.linear_r = TypedLinear(in_feat, out_feat, num_rels, regularizer, num_bases)
+        self.linear_r = TypedLinear(
+            in_feat, out_feat, num_rels, regularizer, num_bases
+        )
         self.bias = bias
         self.activation = activation
         self.self_loop = self_loop
         self.layer_norm = layer_norm
         if self.bias:
-            self.h_bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feat))
+            self.h_bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feat)
+            )
             init_Constant = paddle.nn.initializer.Constant(value=0.0)
             init_Constant(self.h_bias)
         if self.layer_norm:
-            self.layer_norm_weight = paddle.nn.LayerNorm(normalized_shape=out_feat, weight_attr=True, bias_attr=True)
+            self.layer_norm_weight = paddle.nn.LayerNorm(
+                normalized_shape=out_feat, weight_attr=True, bias_attr=True
+            )
         if self.self_loop:
             self.loop_weight = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.empty(shape=[in_feat, out_feat])
@@ -145,11 +152,11 @@ class RelGraphConv(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             A 2D tensor of node features. Shape: :math:`(|V|, D_{in})`.
-        etypes : torch.Tensor or list[int]
+        etypes : paddle.Tensor or list[int]
             An 1D integer tensor of edge types. Shape: :math:`(|E|,)`.
-        norm : torch.Tensor, optional
+        norm : paddle.Tensor, optional
             An 1D tensor of edge norm value.  Shape: :math:`(|E|,)`.
         presorted : bool, optional
             Whether the edges of the input graph have been sorted by their types.
@@ -159,7 +166,7 @@ class RelGraphConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             New node features. Shape: :math:`(|V|, D_{out})`.
         """
         self.presorted = presorted

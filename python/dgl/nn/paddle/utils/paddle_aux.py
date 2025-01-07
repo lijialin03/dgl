@@ -41,7 +41,9 @@ def min_class_func(self, *args, **kwargs):
             kwargs["axis"] = kwargs.pop("dim")
 
         if "axis" in kwargs or len(args) >= 1:
-            ret = paddle.min(self, *args, **kwargs), paddle.argmin(self, *args, **kwargs)
+            ret = paddle.min(self, *args, **kwargs), paddle.argmin(
+                self, *args, **kwargs
+            )
         else:
             ret = paddle.min(self, *args, **kwargs)
 
@@ -59,7 +61,9 @@ def max_class_func(self, *args, **kwargs):
             kwargs["axis"] = kwargs.pop("dim")
 
         if "axis" in kwargs or len(args) >= 1:
-            ret = paddle.max(self, *args, **kwargs), paddle.argmax(self, *args, **kwargs)
+            ret = paddle.max(self, *args, **kwargs), paddle.argmax(
+                self, *args, **kwargs
+            )
         else:
             ret = paddle.max(self, *args, **kwargs)
 

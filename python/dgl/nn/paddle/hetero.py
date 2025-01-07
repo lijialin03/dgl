@@ -1,4 +1,5 @@
 """Heterograph NN modules"""
+
 from functools import partial
 
 import paddle
@@ -50,7 +51,7 @@ class HeteroGraphConv(paddle.nn.Layer):
     different relations. Note that the modules for ``'follows'`` and ``'plays'``
     do not share weights.
 
-    >>> import dgl.nn.pytorch as dglnn
+    >>> import dgl.nn.paddle as dglnn
     >>> conv = dglnn.HeteroGraphConv({
     ...     'follows' : dglnn.GraphConv(...),
     ...     'plays' : dglnn.GraphConv(...),
@@ -60,8 +61,8 @@ class HeteroGraphConv(paddle.nn.Layer):
     Call forward with some ``'user'`` features. This computes new features for both
     ``'user'`` and ``'game'`` nodes.
 
-    >>> import torch as th
-    >>> h1 = {'user' : th.randn((g.num_nodes('user'), 5))}
+    >>> import paddle
+    >>> h1 = {'user' : paddle.randn((g.num_nodes('user'), 5))}
     >>> h2 = conv(g, h1)
     >>> print(h2.keys())
     dict_keys(['user', 'game'])
@@ -114,8 +115,8 @@ class HeteroGraphConv(paddle.nn.Layer):
                 # tensors: is a list of tensors to aggregate
                 # dsttype: string name of the destination node type for which the
                 #          aggregation is performed
-                stacked = torch.stack(tensors, dim=0)
-                return torch.sum(stacked, dim=0)
+                stacked = paddle.stack(tensors, dim=0)
+                return paddle.sum(stacked, dim=0)
 
     Attributes
     ----------
@@ -129,7 +130,9 @@ class HeteroGraphConv(paddle.nn.Layer):
         mods = {str(k): v for k, v in mods.items()}
         self.mods = paddle.nn.LayerDict(sublayers=mods)
         for _, v in self.mods.items():
-            set_allow_zero_in_degree_fn = getattr(v, "set_allow_zero_in_degree", None)
+            set_allow_zero_in_degree_fn = getattr(
+                v, "set_allow_zero_in_degree", None
+            )
             if callable(set_allow_zero_in_degree_fn):
                 set_allow_zero_in_degree_fn(True)
         if isinstance(aggregate, str):
@@ -177,7 +180,9 @@ class HeteroGraphConv(paddle.nn.Layer):
                 src_inputs, dst_inputs = inputs
             else:
                 src_inputs = inputs
-                dst_inputs = {k: v[: g.number_of_dst_nodes(k)] for k, v in inputs.items()}
+                dst_inputs = {
+                    k: v[: g.number_of_dst_nodes(k)] for k, v in inputs.items()
+                }
             for stype, etype, dtype in g.canonical_etypes:
                 rel_graph = g[stype, etype, dtype]
                 if stype not in src_inputs or dtype not in dst_inputs:
@@ -195,7 +200,10 @@ class HeteroGraphConv(paddle.nn.Layer):
                 if stype not in inputs:
                     continue
                 dstdata = self._get_module((stype, etype, dtype))(
-                    rel_graph, (inputs[stype], inputs[dtype]), *mod_args.get(etype, ()), **mod_kwargs.get(etype, {})
+                    rel_graph,
+                    (inputs[stype], inputs[dtype]),
+                    *mod_args.get(etype, ()),
+                    **mod_kwargs.get(etype, {})
                 )
                 outputs[dtype].append(dstdata)
         rsts = {}
@@ -206,11 +214,15 @@ class HeteroGraphConv(paddle.nn.Layer):
 
 
 def _max_reduce_func(inputs, dim):
-    return (paddle.max(x=inputs, axis=dim), paddle.argmax(x=inputs, axis=dim))[0]
+    return (paddle.max(x=inputs, axis=dim), paddle.argmax(x=inputs, axis=dim))[
+        0
+    ]
 
 
 def _min_reduce_func(inputs, dim):
-    return (paddle.min(x=inputs, axis=dim), paddle.argmin(x=inputs, axis=dim))[0]
+    return (paddle.min(x=inputs, axis=dim), paddle.argmin(x=inputs, axis=dim))[
+        0
+    ]
 
 
 def _sum_reduce_func(inputs, dim):
@@ -262,7 +274,8 @@ def get_aggregate_fn(agg):
         fn = None
     else:
         raise DGLError(
-            'Invalid cross type aggregator. Must be one of "sum", "max", "min", "mean" or "stack". But got "%s"' % agg
+            'Invalid cross type aggregator. Must be one of "sum", "max", "min", "mean" or "stack". But got "%s"'
+            % agg
         )
     if agg == "stack":
         return _stack_agg_func
@@ -286,23 +299,25 @@ class HeteroLinear(paddle.nn.Layer):
     --------
 
     >>> import dgl
-    >>> import torch
+    >>> import paddle
     >>> from dgl.nn import HeteroLinear
 
     >>> layer = HeteroLinear({'user': 1, ('user', 'follows', 'user'): 2}, 3)
-    >>> in_feats = {'user': torch.randn(2, 1), ('user', 'follows', 'user'): torch.randn(3, 2)}
+    >>> in_feats = {'user': paddle.randn(2, 1), ('user', 'follows', 'user'): paddle.randn(3, 2)}
     >>> out_feats = layer(in_feats)
     >>> print(out_feats['user'].shape)
-    torch.Size([2, 3])
+    (2, 3)
     >>> print(out_feats[('user', 'follows', 'user')].shape)
-    torch.Size([3, 3])
+    (3, 3)
     """
 
     def __init__(self, in_size, out_size, bias=True):
         super(HeteroLinear, self).__init__()
         self.linears = paddle.nn.LayerDict()
         for typ, typ_in_size in in_size.items():
-            self.linears[str(typ)] = paddle.nn.Linear(in_features=typ_in_size, out_features=out_size, bias_attr=bias)
+            self.linears[str(typ)] = paddle.nn.Linear(
+                in_features=typ_in_size, out_features=out_size, bias_attr=bias
+            )
 
     def forward(self, feat):
         """Forward function
@@ -326,7 +341,7 @@ class HeteroLinear(paddle.nn.Layer):
 class HeteroEmbedding(paddle.nn.Layer):
     """Create a heterogeneous embedding table.
 
-    It internally contains multiple ``torch.nn.Embedding`` with different dictionary sizes.
+    It internally contains multiple ``paddle.nn.Embedding`` with different dictionary sizes.
 
     Parameters
     ----------
@@ -339,25 +354,25 @@ class HeteroEmbedding(paddle.nn.Layer):
     --------
 
     >>> import dgl
-    >>> import torch
+    >>> import paddle
     >>> from dgl.nn import HeteroEmbedding
 
     >>> layer = HeteroEmbedding({'user': 2, ('user', 'follows', 'user'): 3}, 4)
     >>> # Get the heterogeneous embedding table
     >>> embeds = layer.weight
     >>> print(embeds['user'].shape)
-    torch.Size([2, 4])
+    (2, 4)
     >>> print(embeds[('user', 'follows', 'user')].shape)
-    torch.Size([3, 4])
+    (3, 4)
 
     >>> # Get the embeddings for a subset
-    >>> input_ids = {'user': torch.LongTensor([0]),
-    ...              ('user', 'follows', 'user'): torch.LongTensor([0, 2])}
+    >>> input_ids = {'user': paddle.to_tensor([0]),
+    ...              ('user', 'follows', 'user'): paddle.to_tensor([0, 2])}
     >>> embeds = layer(input_ids)
     >>> print(embeds['user'].shape)
-    torch.Size([1, 4])
+    (1, 4)
     >>> print(embeds[('user', 'follows', 'user')].shape)
-    torch.Size([2, 4])
+    (2, 4)
     """
 
     def __init__(self, num_embeddings, embedding_dim):
@@ -365,7 +380,9 @@ class HeteroEmbedding(paddle.nn.Layer):
         self.embeds = paddle.nn.LayerDict()
         self.raw_keys = dict()
         for typ, typ_num_rows in num_embeddings.items():
-            self.embeds[str(typ)] = paddle.nn.Embedding(num_embeddings=typ_num_rows, embedding_dim=embedding_dim)
+            self.embeds[str(typ)] = paddle.nn.Embedding(
+                num_embeddings=typ_num_rows, embedding_dim=embedding_dim
+            )
             self.raw_keys[str(typ)] = typ
 
     @property
@@ -377,7 +394,9 @@ class HeteroEmbedding(paddle.nn.Layer):
         dict[key, Tensor]
             Heterogeneous embedding table
         """
-        return {self.raw_keys[typ]: emb.weight for typ, emb in self.embeds.items()}
+        return {
+            self.raw_keys[typ]: emb.weight for typ, emb in self.embeds.items()
+        }
 
     def reset_parameters(self):
         """

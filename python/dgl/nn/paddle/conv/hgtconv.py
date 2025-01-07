@@ -1,4 +1,5 @@
 """Heterogeneous Graph Transformer"""
+
 import math
 
 import paddle
@@ -85,23 +86,37 @@ class HGTConv(paddle.nn.Layer):
         self.linear_k = TypedLinear(in_size, head_size * num_heads, num_ntypes)
         self.linear_q = TypedLinear(in_size, head_size * num_heads, num_ntypes)
         self.linear_v = TypedLinear(in_size, head_size * num_heads, num_ntypes)
-        self.linear_a = TypedLinear(head_size * num_heads, head_size * num_heads, num_ntypes)
+        self.linear_a = TypedLinear(
+            head_size * num_heads, head_size * num_heads, num_ntypes
+        )
         self.relation_pri = paddle.nn.ParameterList(
             parameters=[
-                paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.ones(shape=num_etypes))
+                paddle.base.framework.EagerParamBase.from_tensor(
+                    tensor=paddle.ones(shape=num_etypes)
+                )
                 for i in range(num_heads)
             ]
         )
         self.relation_att = paddle.nn.LayerList(
-            sublayers=[TypedLinear(head_size, head_size, num_etypes) for i in range(num_heads)]
+            sublayers=[
+                TypedLinear(head_size, head_size, num_etypes)
+                for i in range(num_heads)
+            ]
         )
         self.relation_msg = paddle.nn.LayerList(
-            sublayers=[TypedLinear(head_size, head_size, num_etypes) for i in range(num_heads)]
+            sublayers=[
+                TypedLinear(head_size, head_size, num_etypes)
+                for i in range(num_heads)
+            ]
         )
-        self.skip = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.ones(shape=num_ntypes))
+        self.skip = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.ones(shape=num_ntypes)
+        )
         self.drop = paddle.nn.Dropout(p=dropout)
         if use_norm:
-            self.norm = paddle.nn.LayerNorm(normalized_shape=head_size * num_heads)
+            self.norm = paddle.nn.LayerNorm(
+                normalized_shape=head_size * num_heads
+            )
         if in_size != head_size * num_heads:
             self.residual_w = paddle.base.framework.EagerParamBase.from_tensor(
                 tensor=paddle.empty(shape=[in_size, head_size * num_heads])
@@ -116,11 +131,11 @@ class HGTConv(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The input graph.
-        x : torch.Tensor
+        x : paddle.Tensor
             A 2D tensor of node features. Shape: :math:`(|V|, D_{in})`.
-        ntype : torch.Tensor
+        ntype : paddle.Tensor
             An 1D integer tensor of node types. Shape: :math:`(|V|,)`.
-        etype : torch.Tensor
+        etype : paddle.Tensor
             An 1D integer tensor of edge types. Shape: :math:`(|E|,)`.
         presorted : bool, optional
             Whether *both* the nodes and the edges of the input graph have been sorted by
@@ -130,7 +145,7 @@ class HGTConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             New node features. Shape: :math:`(|V|, D_{head} * N_{head})`.
         """
         self.presorted = presorted
@@ -145,19 +160,29 @@ class HGTConv(paddle.nn.Layer):
             srcntype = ntype
             dstntype = ntype
         with g.local_scope():
-            k = self.linear_k(x_src, srcntype, presorted).view(-1, self.num_heads, self.head_size)
-            q = self.linear_q(x_dst, dstntype, presorted).view(-1, self.num_heads, self.head_size)
-            v = self.linear_v(x_src, srcntype, presorted).view(-1, self.num_heads, self.head_size)
+            k = self.linear_k(x_src, srcntype, presorted).view(
+                -1, self.num_heads, self.head_size
+            )
+            q = self.linear_q(x_dst, dstntype, presorted).view(
+                -1, self.num_heads, self.head_size
+            )
+            v = self.linear_v(x_src, srcntype, presorted).view(
+                -1, self.num_heads, self.head_size
+            )
             g.srcdata["k"] = k
             g.dstdata["q"] = q
             g.srcdata["v"] = v
             g.edata["etype"] = etype
             g.apply_edges(self.message)
-            g.edata["m"] = g.edata["m"] * edge_softmax(g, g.edata["a"]).unsqueeze(-1)
+            g.edata["m"] = g.edata["m"] * edge_softmax(
+                g, g.edata["a"]
+            ).unsqueeze(-1)
             g.update_all(fn.copy_e("m", "m"), fn.sum("m", "h"))
             h = g.dstdata["h"].view(-1, self.num_heads * self.head_size)
             h = self.drop(self.linear_a(h, dstntype, presorted))
-            alpha = paddle.nn.functional.sigmoid(x=self.skip[dstntype]).unsqueeze(axis=-1)
+            alpha = paddle.nn.functional.sigmoid(
+                x=self.skip[dstntype]
+            ).unsqueeze(axis=-1)
             if tuple(x_dst.shape) != tuple(h.shape):
                 h = h * alpha + x_dst @ self.residual_w * (1 - alpha)
             else:
@@ -175,6 +200,10 @@ class HGTConv(paddle.nn.Layer):
         v = paddle.unbind(input=edges.src["v"], axis=1)
         for i in range(self.num_heads):
             kw = self.relation_att[i](k[i], etype, self.presorted)
-            a.append((kw * q[i]).sum(axis=-1) * self.relation_pri[i][etype] / self.sqrt_d)
+            a.append(
+                (kw * q[i]).sum(axis=-1)
+                * self.relation_pri[i][etype]
+                / self.sqrt_d
+            )
             m.append(self.relation_msg[i](v[i], etype, self.presorted))
         return {"a": paddle.stack(x=a, axis=1), "m": paddle.stack(x=m, axis=1)}

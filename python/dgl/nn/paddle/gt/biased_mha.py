@@ -1,4 +1,5 @@
 """Biased Multi-head Attention"""
+
 import paddle
 
 from ....backends.paddle.utils import transpose_aux_func
@@ -38,7 +39,7 @@ class BiasedMHA(paddle.nn.Layer):
 
     Examples
     --------
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import BiasedMHA
 
     >>> ndata = th.rand(16, 100, 512)
@@ -59,13 +60,23 @@ class BiasedMHA(paddle.nn.Layer):
         self.feat_size = feat_size
         self.num_heads = num_heads
         self.head_dim = feat_size // num_heads
-        assert self.head_dim * num_heads == feat_size, "feat_size must be divisible by num_heads"
+        assert (
+            self.head_dim * num_heads == feat_size
+        ), "feat_size must be divisible by num_heads"
         self.scaling = self.head_dim**-0.5
         self.attn_bias_type = attn_bias_type
-        self.q_proj = paddle.nn.Linear(in_features=feat_size, out_features=feat_size, bias_attr=bias)
-        self.k_proj = paddle.nn.Linear(in_features=feat_size, out_features=feat_size, bias_attr=bias)
-        self.v_proj = paddle.nn.Linear(in_features=feat_size, out_features=feat_size, bias_attr=bias)
-        self.out_proj = paddle.nn.Linear(in_features=feat_size, out_features=feat_size, bias_attr=bias)
+        self.q_proj = paddle.nn.Linear(
+            in_features=feat_size, out_features=feat_size, bias_attr=bias
+        )
+        self.k_proj = paddle.nn.Linear(
+            in_features=feat_size, out_features=feat_size, bias_attr=bias
+        )
+        self.v_proj = paddle.nn.Linear(
+            in_features=feat_size, out_features=feat_size, bias_attr=bias
+        )
+        self.out_proj = paddle.nn.Linear(
+            in_features=feat_size, out_features=feat_size, bias_attr=bias
+        )
         self.dropout = paddle.nn.Dropout(p=attn_drop)
         self.reset_parameters()
 
@@ -91,13 +102,13 @@ class BiasedMHA(paddle.nn.Layer):
 
         Parameters
         ----------
-        ndata : torch.Tensor
+        ndata : paddle.Tensor
             A 3D input tensor. Shape: (batch_size, N, :attr:`feat_size`), where
             N is the maximum number of nodes.
-        attn_bias : torch.Tensor, optional
+        attn_bias : paddle.Tensor, optional
             The attention bias used for attention modification. Shape:
             (batch_size, N, N, :attr:`num_heads`).
-        attn_mask : torch.Tensor, optional
+        attn_mask : paddle.Tensor, optional
             The attention mask used for avoiding computation on invalid
             positions, where invalid positions are indicated by `True` values.
             Shape: (batch_size, N, N). Note: For rows corresponding to
@@ -106,12 +117,18 @@ class BiasedMHA(paddle.nn.Layer):
 
         Returns
         -------
-        y : torch.Tensor
+        y : paddle.Tensor
             The output tensor. Shape: (batch_size, N, :attr:`feat_size`)
         """
-        q_h = self.q_proj(ndata).transpose(perm=transpose_aux_func(self.q_proj(ndata).ndim, 0, 1))
-        k_h = self.k_proj(ndata).transpose(perm=transpose_aux_func(self.k_proj(ndata).ndim, 0, 1))
-        v_h = self.v_proj(ndata).transpose(perm=transpose_aux_func(self.v_proj(ndata).ndim, 0, 1))
+        q_h = self.q_proj(ndata).transpose(
+            perm=transpose_aux_func(self.q_proj(ndata).ndim, 0, 1)
+        )
+        k_h = self.k_proj(ndata).transpose(
+            perm=transpose_aux_func(self.k_proj(ndata).ndim, 0, 1)
+        )
+        v_h = self.v_proj(ndata).transpose(
+            perm=transpose_aux_func(self.v_proj(ndata).ndim, 0, 1)
+        )
         bsz, N, _ = tuple(ndata.shape)
         q_h = (
             q_h.reshape(N, bsz * self.num_heads, self.head_dim).transpose(
@@ -123,18 +140,28 @@ class BiasedMHA(paddle.nn.Layer):
             )
             * self.scaling
         )
-        k_h = k_h.reshape(N, bsz * self.num_heads, self.head_dim).transpose(perm=[1, 2, 0])
+        k_h = k_h.reshape(N, bsz * self.num_heads, self.head_dim).transpose(
+            perm=[1, 2, 0]
+        )
         v_h = v_h.reshape(N, bsz * self.num_heads, self.head_dim).transpose(
-            perm=transpose_aux_func(v_h.reshape(N, bsz * self.num_heads, self.head_dim).ndim, 0, 1)
+            perm=transpose_aux_func(
+                v_h.reshape(N, bsz * self.num_heads, self.head_dim).ndim, 0, 1
+            )
         )
         attn_weights = (
             paddle.bmm(x=q_h, y=k_h)
-            .transpose(perm=transpose_aux_func(paddle.bmm(x=q_h, y=k_h).ndim, 0, 2))
+            .transpose(
+                perm=transpose_aux_func(paddle.bmm(x=q_h, y=k_h).ndim, 0, 2)
+            )
             .reshape(N, N, bsz, self.num_heads)
             .transpose(
                 perm=transpose_aux_func(
                     paddle.bmm(x=q_h, y=k_h)
-                    .transpose(perm=transpose_aux_func(paddle.bmm(x=q_h, y=k_h).ndim, 0, 2))
+                    .transpose(
+                        perm=transpose_aux_func(
+                            paddle.bmm(x=q_h, y=k_h).ndim, 0, 2
+                        )
+                    )
                     .reshape(N, N, bsz, self.num_heads)
                     .ndim,
                     0,
@@ -150,11 +177,15 @@ class BiasedMHA(paddle.nn.Layer):
         if attn_mask is not None:
             attn_weights[attn_mask.to("bool")] = float("-inf")
         attn_weights = paddle.nn.functional.softmax(
-            x=attn_weights.transpose(perm=transpose_aux_func(attn_weights.ndim, 0, 2))
+            x=attn_weights.transpose(
+                perm=transpose_aux_func(attn_weights.ndim, 0, 2)
+            )
             .reshape(N, N, bsz * self.num_heads)
             .transpose(
                 perm=transpose_aux_func(
-                    attn_weights.transpose(perm=transpose_aux_func(attn_weights.ndim, 0, 2))
+                    attn_weights.transpose(
+                        perm=transpose_aux_func(attn_weights.ndim, 0, 2)
+                    )
                     .reshape(N, N, bsz * self.num_heads)
                     .ndim,
                     0,
@@ -165,11 +196,15 @@ class BiasedMHA(paddle.nn.Layer):
         )
         attn_weights = self.dropout(attn_weights)
         attn = paddle.bmm(x=attn_weights, y=v_h).transpose(
-            perm=transpose_aux_func(paddle.bmm(x=attn_weights, y=v_h).ndim, 0, 1)
+            perm=transpose_aux_func(
+                paddle.bmm(x=attn_weights, y=v_h).ndim, 0, 1
+            )
         )
         attn = self.out_proj(
             attn.reshape(N, bsz, self.feat_size).transpose(
-                perm=transpose_aux_func(attn.reshape(N, bsz, self.feat_size).ndim, 0, 1)
+                perm=transpose_aux_func(
+                    attn.reshape(N, bsz, self.feat_size).ndim, 0, 1
+                )
             )
         )
         return attn

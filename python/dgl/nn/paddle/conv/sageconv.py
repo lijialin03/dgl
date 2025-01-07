@@ -1,4 +1,5 @@
-"""Torch Module for GraphSAGE layer"""
+"""Paddle Module for GraphSAGE layer"""
+
 import paddle
 
 from .... import function as fn
@@ -61,7 +62,7 @@ class SAGEConv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import SAGEConv
 
     >>> # Case 1: Homogeneous graph
@@ -118,7 +119,9 @@ class SAGEConv(paddle.nn.Layer):
         self.feat_drop = paddle.nn.Dropout(p=feat_drop)
         self.activation = activation
         if aggregator_type == "pool":
-            self.fc_pool = paddle.nn.Linear(in_features=self._in_src_feats, out_features=self._in_src_feats)
+            self.fc_pool = paddle.nn.Linear(
+                in_features=self._in_src_feats, out_features=self._in_src_feats
+            )
         if aggregator_type == "lstm":
             self.lstm = paddle.nn.LSTM(
                 input_size=self._in_src_feats,
@@ -137,7 +140,9 @@ class SAGEConv(paddle.nn.Layer):
                 bias_attr=bias,
             )
         elif bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.zeros(shape=self._out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.zeros(shape=self._out_feats)
+            )
         else:
             self.register_buffer(name="bias", tensor=None)
         self.reset_parameters()
@@ -173,7 +178,9 @@ class SAGEConv(paddle.nn.Layer):
         """
         m = nodes.mailbox["m"]
         batch_size = tuple(m.shape)[0]
-        h = paddle.zeros(shape=(1, batch_size, self._in_src_feats), dtype=m.dtype), paddle.zeros(
+        h = paddle.zeros(
+            shape=(1, batch_size, self._in_src_feats), dtype=m.dtype
+        ), paddle.zeros(
             shape=(1, batch_size, self._in_src_feats), dtype=m.dtype
         )
         _, (rst, _) = self.lstm(m, h)
@@ -190,19 +197,19 @@ class SAGEConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, it represents the input feature of shape
+        feat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, it represents the input feature of shape
             :math:`(N, D_{in})`
             where :math:`D_{in}` is size of input feature, :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
             :math:`(N_{in}, D_{in_{src}})` and :math:`(N_{out}, D_{in_{dst}})`.
-        edge_weight : torch.Tensor, optional
+        edge_weight : paddle.Tensor, optional
             Optional tensor on the edge. If given, the convolution will weight
             with regard to the message.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N_{dst}, D_{out})`
             where :math:`N_{dst}` is the number of destination nodes in the input graph,
             :math:`D_{out}` is the size of the output feature.
@@ -222,30 +229,44 @@ class SAGEConv(paddle.nn.Layer):
                 msg_fn = fn.u_mul_e("h", "_edge_weight", "m")
             h_self = feat_dst
             if graph.num_edges() == 0:
-                graph.dstdata["neigh"] = paddle.zeros(shape=[tuple(feat_dst.shape)[0], self._in_src_feats]).to(feat_dst)
+                graph.dstdata["neigh"] = paddle.zeros(
+                    shape=[tuple(feat_dst.shape)[0], self._in_src_feats]
+                ).to(feat_dst)
             lin_before_mp = self._in_src_feats > self._out_feats
             if self._aggre_type == "mean":
-                graph.srcdata["h"] = self.fc_neigh(feat_src) if lin_before_mp else feat_src
+                graph.srcdata["h"] = (
+                    self.fc_neigh(feat_src) if lin_before_mp else feat_src
+                )
                 graph.update_all(msg_fn, fn.mean("m", "neigh"))
                 h_neigh = graph.dstdata["neigh"]
                 if not lin_before_mp:
                     h_neigh = self.fc_neigh(h_neigh)
             elif self._aggre_type == "gcn":
                 check_eq_shape(feat)
-                graph.srcdata["h"] = self.fc_neigh(feat_src) if lin_before_mp else feat_src
+                graph.srcdata["h"] = (
+                    self.fc_neigh(feat_src) if lin_before_mp else feat_src
+                )
                 if isinstance(feat, tuple):
-                    graph.dstdata["h"] = self.fc_neigh(feat_dst) if lin_before_mp else feat_dst
+                    graph.dstdata["h"] = (
+                        self.fc_neigh(feat_dst) if lin_before_mp else feat_dst
+                    )
                 elif graph.is_block:
-                    graph.dstdata["h"] = graph.srcdata["h"][: graph.num_dst_nodes()]
+                    graph.dstdata["h"] = graph.srcdata["h"][
+                        : graph.num_dst_nodes()
+                    ]
                 else:
                     graph.dstdata["h"] = graph.srcdata["h"]
                 graph.update_all(msg_fn, fn.sum("m", "neigh"))
                 degs = graph.in_degrees().to(feat_dst)
-                h_neigh = (graph.dstdata["neigh"] + graph.dstdata["h"]) / (degs.unsqueeze(axis=-1) + 1)
+                h_neigh = (graph.dstdata["neigh"] + graph.dstdata["h"]) / (
+                    degs.unsqueeze(axis=-1) + 1
+                )
                 if not lin_before_mp:
                     h_neigh = self.fc_neigh(h_neigh)
             elif self._aggre_type == "pool":
-                graph.srcdata["h"] = paddle.nn.functional.relu(x=self.fc_pool(feat_src))
+                graph.srcdata["h"] = paddle.nn.functional.relu(
+                    x=self.fc_pool(feat_src)
+                )
                 graph.update_all(msg_fn, fn.max("m", "neigh"))
                 h_neigh = self.fc_neigh(graph.dstdata["neigh"])
             elif self._aggre_type == "lstm":
@@ -253,7 +274,11 @@ class SAGEConv(paddle.nn.Layer):
                 graph.update_all(msg_fn, self._lstm_reducer)
                 h_neigh = self.fc_neigh(graph.dstdata["neigh"])
             else:
-                raise KeyError("Aggregator type {} not recognized.".format(self._aggre_type))
+                raise KeyError(
+                    "Aggregator type {} not recognized.".format(
+                        self._aggre_type
+                    )
+                )
             if self._aggre_type == "gcn":
                 rst = h_neigh
                 if self.bias is not None:

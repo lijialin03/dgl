@@ -1,4 +1,5 @@
-"""Torch modules for graph attention networks with fully valuable edges (EGAT)."""
+"""Paddle modules for graph attention networks with fully valuable edges (EGAT)."""
+
 import paddle
 
 from .... import function as fn
@@ -47,7 +48,7 @@ class EGATConv(paddle.nn.Layer):
     Examples
     ----------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import EGATConv
 
     >>> # Case 1: Homogeneous graph
@@ -64,7 +65,7 @@ class EGATConv(paddle.nn.Layer):
     >>> #forward pass
     >>> new_node_feats, new_edge_feats = egat(graph, node_feats, edge_feats)
     >>> new_node_feats.shape, new_edge_feats.shape
-    torch.Size([8, 3, 15]) torch.Size([30, 3, 10])
+    (8, 3, 15) (30, 3, 10)
 
     >>> # Case 2: Unidirectional bipartite graph
     >>> u = [0, 1, 0, 0, 1]
@@ -90,7 +91,7 @@ class EGATConv(paddle.nn.Layer):
     >>> new_edge_feats,
     >>> attentions = egat_model(g, nfeats, efeats, get_attention=True)
     >>> new_node_feats.shape, new_edge_feats.shape, attentions.shape
-    (torch.Size([4, 3, 10]), torch.Size([5, 3, 5]), torch.Size([5, 3, 1]))
+    ((4, 3, 10), (5, 3, 5), (5, 3, 1))
     """
 
     def __init__(
@@ -104,7 +105,9 @@ class EGATConv(paddle.nn.Layer):
     ):
         super().__init__()
         self._num_heads = num_heads
-        self._in_src_node_feats, self._in_dst_node_feats = expand_as_pair(in_node_feats)
+        self._in_src_node_feats, self._in_dst_node_feats = expand_as_pair(
+            in_node_feats
+        )
         self._out_node_feats = out_node_feats
         self._out_edge_feats = out_edge_feats
         if isinstance(in_node_feats, tuple):
@@ -145,11 +148,15 @@ class EGATConv(paddle.nn.Layer):
             bias_attr=False,
         )
         self.attn = paddle.base.framework.EagerParamBase.from_tensor(
-            tensor=paddle.empty(shape=(1, num_heads, out_edge_feats), dtype="float32")
+            tensor=paddle.empty(
+                shape=(1, num_heads, out_edge_feats), dtype="float32"
+            )
         )
         if bias:
             self.bias = paddle.base.framework.EagerParamBase.from_tensor(
-                tensor=paddle.empty(shape=(num_heads * out_edge_feats,), dtype="float32")
+                tensor=paddle.empty(
+                    shape=(num_heads * out_edge_feats,), dtype="float32"
+                )
             )
         else:
             self.register_buffer(name="bias", tensor=None)
@@ -173,7 +180,9 @@ class EGATConv(paddle.nn.Layer):
         init_Constant = paddle.nn.initializer.Constant(value=0)
         init_Constant(self.bias)
 
-    def forward(self, graph, nfeats, efeats, edge_weight=None, get_attention=False):
+    def forward(
+        self, graph, nfeats, efeats, edge_weight=None, get_attention=False
+    ):
         """
         Compute new node and edge features.
 
@@ -181,27 +190,27 @@ class EGATConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        nfeat : torch.Tensor or pair of torch.Tensor
-            If a torch.Tensor is given, the input feature of shape :math:`(N, D_{in})`
+        nfeat : paddle.Tensor or pair of paddle.Tensor
+            If a paddle.Tensor is given, the input feature of shape :math:`(N, D_{in})`
             where:
                 :math:`D_{in}` is size of input node feature,
                 :math:`N` is the number of nodes.
-            If a pair of torch.Tensor is given, the pair must contain two tensors of shape
+            If a pair of paddle.Tensor is given, the pair must contain two tensors of shape
                 :math:`(N_{in}, D_{in_{src}})` and
                 :math:`(N_{out}, D_{in_{dst}})`.
-        efeats: torch.Tensor
+        efeats: paddle.Tensor
              The input edge feature of shape :math:`(E, F_{in})`
              where:
                  :math:`F_{in}` is size of input node feature,
                  :math:`E` is the number of edges.
-        edge_weight : torch.Tensor, optional
+        edge_weight : paddle.Tensor, optional
             A 1D tensor of edge weight values.  Shape: :math:`(|E|,)`.
         get_attention : bool, optional
                 Whether to return the attention values. Default to False.
 
         Returns
         -------
-        pair of torch.Tensor
+        pair of paddle.Tensor
             node output features followed by edge output features.
             The node output feature is of shape :math:`(N, H, D_{out})`
             The edge output feature is of shape :math:`(F, H, F_{out})`
@@ -209,7 +218,7 @@ class EGATConv(paddle.nn.Layer):
                 :math:`H` is the number of heads,
                 :math:`D_{out}` is size of output node feature,
                 :math:`F_{out}` is size of output edge feature.
-        torch.Tensor, optional
+        paddle.Tensor, optional
             The attention values of shape :math:`(E, H, 1)`.
             This is returned only when :attr:`get_attention` is ``True``.
         """
@@ -242,16 +251,26 @@ class EGATConv(paddle.nn.Layer):
             e = (f_out * self.attn).sum(axis=-1).unsqueeze(axis=-1)
             graph.edata["a"] = edge_softmax(graph, e)
             if edge_weight is not None:
-                graph.edata["a"] = graph.edata["a"] * edge_weight.tile(repeat_times=[1, self._num_heads, 1]).transpose(
+                graph.edata["a"] = graph.edata["a"] * edge_weight.tile(
+                    repeat_times=[1, self._num_heads, 1]
+                ).transpose(
                     perm=transpose_aux_func(
-                        edge_weight.tile(repeat_times=[1, self._num_heads, 1]).ndim,
+                        edge_weight.tile(
+                            repeat_times=[1, self._num_heads, 1]
+                        ).ndim,
                         0,
                         2,
                     )
                 )
-            graph.srcdata["h_out"] = self.fc_node_src(nfeats_src).view(-1, self._num_heads, self._out_node_feats)
-            graph.update_all(fn.u_mul_e("h_out", "a", "m"), fn.sum("m", "h_out"))
-            h_out = graph.dstdata["h_out"].view(-1, self._num_heads, self._out_node_feats)
+            graph.srcdata["h_out"] = self.fc_node_src(nfeats_src).view(
+                -1, self._num_heads, self._out_node_feats
+            )
+            graph.update_all(
+                fn.u_mul_e("h_out", "a", "m"), fn.sum("m", "h_out")
+            )
+            h_out = graph.dstdata["h_out"].view(
+                -1, self._num_heads, self._out_node_feats
+            )
             if get_attention:
                 return h_out, f_out, graph.edata.pop("a")
             else:

@@ -41,11 +41,13 @@ class CuGraphBaseConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The augmented offsets array.
         """
         if self._cached_offsets_fg is None:
-            self._cached_offsets_fg = paddle.empty(shape=size, dtype=offsets.dtype)
+            self._cached_offsets_fg = paddle.empty(
+                shape=size, dtype=offsets.dtype
+            )
         elif self._cached_offsets_fg.size < size:
             self._cached_offsets_fg.resize_([size])
         self._cached_offsets_fg[: offsets.size] = offsets

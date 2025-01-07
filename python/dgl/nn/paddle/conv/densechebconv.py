@@ -1,4 +1,5 @@
-"""Torch Module for DenseChebConv"""
+"""Paddle Module for DenseChebConv"""
+
 import paddle
 
 
@@ -26,7 +27,7 @@ class DenseChebConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import DenseChebConv
     >>>
     >>> feat = th.ones(6, 10)
@@ -48,7 +49,7 @@ class DenseChebConv(paddle.nn.Layer):
 
     See also
     --------
-    `ChebConv <https://docs.dgl.ai/api/python/nn.pytorch.html#chebconv>`__
+    `ChebConv <https://docs.dgl.ai/api/python/nn.paddle.html#chebconv>`__
     """
 
     def __init__(self, in_feats, out_feats, k, bias=True):
@@ -56,9 +57,13 @@ class DenseChebConv(paddle.nn.Layer):
         self._in_feats = in_feats
         self._out_feats = out_feats
         self._k = k
-        self.W = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.empty(shape=[k, in_feats, out_feats]))
+        self.W = paddle.base.framework.EagerParamBase.from_tensor(
+            tensor=paddle.empty(shape=[k, in_feats, out_feats])
+        )
         if bias:
-            self.bias = paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.to_tensor(data=out_feats))
+            self.bias = paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.to_tensor(data=out_feats)
+            )
         else:
             self.register_buffer(name="bias", tensor=None)
         self.reset_parameters()
@@ -79,11 +84,11 @@ class DenseChebConv(paddle.nn.Layer):
 
         Parameters
         ----------
-        adj : torch.Tensor
+        adj : paddle.Tensor
             The adjacency matrix of the graph to apply Graph Convolution on,
             should be of shape :math:`(N, N)`, where a row represents the destination
             and a column represents the source.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`D_{in}`
             is size of input feature, :math:`N` is the number of nodes.
         lambda_max : float or None, optional
@@ -92,7 +97,7 @@ class DenseChebConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
         """

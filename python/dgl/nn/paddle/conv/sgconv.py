@@ -1,4 +1,5 @@
-"""Torch Module for Simplifying Graph Convolution layer"""
+"""Paddle Module for Simplifying Graph Convolution layer"""
+
 import paddle
 
 from .... import function as fn
@@ -63,7 +64,7 @@ class SGConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import SGConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -91,7 +92,9 @@ class SGConv(paddle.nn.Layer):
         allow_zero_in_degree=False,
     ):
         super(SGConv, self).__init__()
-        self.fc = paddle.nn.Linear(in_features=in_feats, out_features=out_feats, bias_attr=bias)
+        self.fc = paddle.nn.Linear(
+            in_features=in_feats, out_features=out_feats, bias_attr=bias
+        )
         self._cached = cached
         self._cached_h = None
         self._k = k
@@ -142,18 +145,18 @@ class SGConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`D_{in}`
             is size of input feature, :math:`N` is the number of nodes.
-        edge_weight: torch.Tensor, optional
+        edge_weight: paddle.Tensor, optional
             edge_weight to use in the message passing process. This is equivalent to
             using weighted adjacency matrix in the equation above, and
             :math:`\\tilde{D}^{-1/2}\\tilde{A} \\tilde{D}^{-1/2}`
-            is based on :class:`dgl.nn.pytorch.conv.graphconv.EdgeWeightNorm`.
+            is based on :class:`dgl.nn.paddle.conv.graphconv.EdgeWeightNorm`.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
 
@@ -185,7 +188,9 @@ class SGConv(paddle.nn.Layer):
                     )
             msg_func = fn.copy_u("h", "m")
             if edge_weight is not None:
-                graph.edata["_edge_weight"] = EdgeWeightNorm("both")(graph, edge_weight)
+                graph.edata["_edge_weight"] = EdgeWeightNorm("both")(
+                    graph, edge_weight
+                )
                 msg_func = fn.u_mul_e("h", "_edge_weight", "m")
             if self._cached_h is not None:
                 feat = self._cached_h

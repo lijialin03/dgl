@@ -1,4 +1,5 @@
-"""Utilities for pytorch NN package"""
+"""Utilities for paddle NN package"""
+
 import paddle
 
 from ... import DGLGraph
@@ -32,14 +33,14 @@ def matmul_maybe_select(A, B):
 
     Parameters
     ----------
-    A : torch.Tensor
+    A : paddle.Tensor
         lhs tensor
-    B : torch.Tensor
+    B : paddle.Tensor
         rhs tensor
 
     Returns
     -------
-    C : torch.Tensor
+    C : paddle.Tensor
         result tensor
     """
     if A.dtype == "int64" and len(tuple(A.shape)) == 1:
@@ -70,16 +71,16 @@ def bmm_maybe_select(A, B, index):
 
     Parameters
     ----------
-    A : torch.Tensor
+    A : paddle.Tensor
         lhs tensor
-    B : torch.Tensor
+    B : paddle.Tensor
         rhs tensor
-    index : torch.Tensor
+    index : paddle.Tensor
         index tensor
 
     Returns
     -------
-    C : torch.Tensor
+    C : paddle.Tensor
         return tensor
     """
     if A.dtype == "int64" and len(tuple(A.shape)) == 1:
@@ -94,7 +95,7 @@ def bmm_maybe_select(A, B, index):
 class Identity(paddle.nn.Layer):
     """A placeholder identity operator that is argument-insensitive.
     (Identity has already been supported by PyTorch 1.2, we will directly
-    import torch.nn.Identity in the future)
+    import paddle.nn.Identity in the future)
     """
 
     def __init__(self):
@@ -115,7 +116,7 @@ class Sequential(paddle.nn.Sequential):
     Parameters
     ----------
     *args :
-        Sub-modules of torch.nn.Module that will be added to the container in
+        Sub-modules of paddle.nn.Layer that will be added to the container in
         the order by which they are passed in the constructor.
 
     Examples
@@ -124,11 +125,11 @@ class Sequential(paddle.nn.Sequential):
 
     Mode 1: sequentially apply GNN modules on the same graph
 
-    >>> import torch
+    >>> import paddle
     >>> import dgl
-    >>> import torch.nn as nn
+    >>> import paddle.nn as nn
     >>> import dgl.function as fn
-    >>> from dgl.nn.pytorch import Sequential
+    >>> from dgl.nn.paddle import Sequential
     >>> class ExampleLayer(nn.Module):
     >>>     def __init__(self):
     >>>         super().__init__()
@@ -145,8 +146,8 @@ class Sequential(paddle.nn.Sequential):
     >>> g.add_nodes(3)
     >>> g.add_edges([0, 1, 2, 0, 1, 2, 0, 1, 2], [0, 0, 0, 1, 1, 1, 2, 2, 2])
     >>> net = Sequential(ExampleLayer(), ExampleLayer(), ExampleLayer())
-    >>> n_feat = torch.rand(3, 4)
-    >>> e_feat = torch.rand(9, 4)
+    >>> n_feat = paddle.rand(3, 4)
+    >>> e_feat = paddle.rand(9, 4)
     >>> net(g, n_feat, e_feat)
     (tensor([[39.8597, 45.4542, 25.1877, 30.8086],
              [40.7095, 45.3985, 25.4590, 30.0134],
@@ -163,12 +164,12 @@ class Sequential(paddle.nn.Sequential):
 
     Mode 2: sequentially apply GNN modules on different graphs
 
-    >>> import torch
+    >>> import paddle
     >>> import dgl
-    >>> import torch.nn as nn
+    >>> import paddle.nn as nn
     >>> import dgl.function as fn
     >>> import networkx as nx
-    >>> from dgl.nn.pytorch import Sequential
+    >>> from dgl.nn.paddle import Sequential
     >>> class ExampleLayer(nn.Module):
     >>>     def __init__(self):
     >>>         super().__init__()
@@ -183,7 +184,7 @@ class Sequential(paddle.nn.Sequential):
     >>> g2 = dgl.DGLGraph(nx.erdos_renyi_graph(16, 0.2))
     >>> g3 = dgl.DGLGraph(nx.erdos_renyi_graph(8, 0.8))
     >>> net = Sequential(ExampleLayer(), ExampleLayer(), ExampleLayer())
-    >>> n_feat = torch.rand(32, 4)
+    >>> n_feat = paddle.rand(32, 4)
     >>> net([g1, g2, g3], n_feat)
     tensor([[209.6221, 225.5312, 193.8920, 220.1002],
             [250.0169, 271.9156, 240.2467, 267.7766],
@@ -220,7 +221,9 @@ class Sequential(paddle.nn.Sequential):
                     feats = (feats,)
                 feats = module(graph, *feats)
         else:
-            raise TypeError("The first argument of forward must be a DGLGraph or a list of DGLGraph s")
+            raise TypeError(
+                "The first argument of forward must be a DGLGraph or a list of DGLGraph s"
+            )
         return feats
 
 
@@ -256,7 +259,9 @@ class WeightBasis(paddle.nn.Layer):
         self.num_bases = num_bases
         self.num_outputs = num_outputs
         if num_outputs <= num_bases:
-            dgl_warning("The number of weight outputs should be larger than the number of bases.")
+            dgl_warning(
+                "The number of weight outputs should be larger than the number of bases."
+            )
         self.weight = paddle.base.framework.EagerParamBase.from_tensor(
             tensor=paddle.empty(shape=[self.num_bases, *shape])
         )
@@ -277,10 +282,12 @@ class WeightBasis(paddle.nn.Layer):
 
         Returns
         -------
-        weight : torch.Tensor
+        weight : paddle.Tensor
             Composed weight tensor of shape ``(num_outputs,) + shape``
         """
-        weight = paddle.matmul(x=self.w_comp, y=self.weight.view(self.num_bases, -1))
+        weight = paddle.matmul(
+            x=self.w_comp, y=self.weight.view(self.num_bases, -1)
+        )
         return weight.view(self.num_outputs, *self.shape)
 
 
@@ -326,7 +333,7 @@ class JumpingKnowledge(paddle.nn.Layer):
     Examples
     --------
     >>> import dgl
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import JumpingKnowledge
 
     >>> # Output representations of two GNN layers
@@ -337,17 +344,17 @@ class JumpingKnowledge(paddle.nn.Layer):
     >>> # Case1
     >>> model = JumpingKnowledge()
     >>> model(feat_list).shape
-    torch.Size([3, 8])
+    (3, 8)
 
     >>> # Case2
     >>> model = JumpingKnowledge(mode='max')
     >>> model(feat_list).shape
-    torch.Size([3, 4])
+    (3, 4)
 
     >>> # Case3
     >>> model = JumpingKnowledge(mode='max', in_feats=in_feats, num_layers=len(feat_list))
     >>> model(feat_list).shape
-    torch.Size([3, 4])
+    (3, 4)
     """
 
     def __init__(self, mode="cat", in_feats=None, num_layers=None):
@@ -360,7 +367,9 @@ class JumpingKnowledge(paddle.nn.Layer):
         self.mode = mode
         if mode == "lstm":
             assert in_feats is not None, "in_feats is required for lstm mode"
-            assert num_layers is not None, "num_layers is required for lstm mode"
+            assert (
+                num_layers is not None
+            ), "num_layers is required for lstm mode"
             hidden_size = num_layers * in_feats // 2
             self.lstm = paddle.nn.LSTM(
                 input_size=in_feats,
@@ -368,7 +377,9 @@ class JumpingKnowledge(paddle.nn.Layer):
                 time_major=not True,
                 direction="bidirect",
             )
-            self.att = paddle.nn.Linear(in_features=2 * hidden_size, out_features=1)
+            self.att = paddle.nn.Linear(
+                in_features=2 * hidden_size, out_features=1
+            )
 
     def reset_parameters(self):
         """
@@ -449,14 +460,14 @@ class LabelPropagation(paddle.nn.Layer):
 
     Examples
     --------
-    >>> import torch
+    >>> import paddle
     >>> import dgl
     >>> from dgl.nn import LabelPropagation
 
     >>> label_propagation = LabelPropagation(k=5, alpha=0.5, clamp=False, normalize=True)
     >>> g = dgl.rand_graph(5, 10)
-    >>> labels = torch.tensor([0, 2, 1, 3, 0]).long()
-    >>> mask = torch.tensor([0, 1, 1, 1, 0]).bool()
+    >>> labels = paddle.tensor([0, 2, 1, 3, 0]).long()
+    >>> mask = paddle.tensor([0, 1, 1, 1, 0]).bool()
     >>> new_labels = label_propagation(g, labels, mask)
     """
 
@@ -484,7 +495,7 @@ class LabelPropagation(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The input graph.
-        labels : torch.Tensor
+        labels : paddle.Tensor
             The input node labels. There are three cases supported.
 
             * A LongTensor of shape :math:`(N, 1)` or :math:`(N,)` for node class labels in
@@ -493,13 +504,13 @@ class LabelPropagation(paddle.nn.Layer):
               in multiclass classification, where :math:`C` is the number of classes.
             * A LongTensor of shape :math:`(N, L)` for node labels in multilabel binary
               classification, where :math:`L` is the number of labels.
-        mask : torch.Tensor
+        mask : paddle.Tensor
             The bool indicators of shape :math:`(N,)` with True denoting labeled nodes.
             Default: None, indicating all nodes are labeled.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The propagated node labels of shape :math:`(N, D)` with float type, where :math:`D`
             is the number of classes or labels.
         """
@@ -523,12 +534,26 @@ class LabelPropagation(paddle.nn.Layer):
             in_degs = g.in_degrees().astype(dtype="float32").clip(min=1)
             out_degs = g.out_degrees().astype(dtype="float32").clip(min=1)
             if self.norm_type == "sym":
-                norm_i = paddle.pow(x=in_degs, y=-0.5).to(labels.place).unsqueeze(axis=1)
-                norm_j = paddle.pow(x=out_degs, y=-0.5).to(labels.place).unsqueeze(axis=1)
+                norm_i = (
+                    paddle.pow(x=in_degs, y=-0.5)
+                    .to(labels.place)
+                    .unsqueeze(axis=1)
+                )
+                norm_j = (
+                    paddle.pow(x=out_degs, y=-0.5)
+                    .to(labels.place)
+                    .unsqueeze(axis=1)
+                )
             elif self.norm_type == "row":
-                norm_i = paddle.pow(x=in_degs, y=-1.0).to(labels.place).unsqueeze(axis=1)
+                norm_i = (
+                    paddle.pow(x=in_degs, y=-1.0)
+                    .to(labels.place)
+                    .unsqueeze(axis=1)
+                )
             else:
-                raise ValueError(f"Expect norm_type to be 'sym' or 'row', got {self.norm_type}")
+                raise ValueError(
+                    f"Expect norm_type to be 'sym' or 'row', got {self.norm_type}"
+                )
             for _ in range(self.k):
                 g.ndata["h"] = y * norm_j if self.norm_type == "sym" else y
                 g.update_all(fn.copy_u("h", "m"), fn.sum("m", "h"))

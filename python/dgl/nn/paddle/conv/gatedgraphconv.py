@@ -1,4 +1,5 @@
-"""Torch Module for Gated Graph Convolution layer"""
+"""Paddle Module for Gated Graph Convolution layer"""
+
 import paddle
 
 from .... import function as fn
@@ -32,7 +33,7 @@ class GatedGraphConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GatedGraphConv
     >>>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -63,7 +64,10 @@ class GatedGraphConv(paddle.nn.Layer):
         self._n_steps = n_steps
         self._n_etypes = n_etypes
         self.linears = paddle.nn.LayerList(
-            sublayers=[paddle.nn.Linear(in_features=out_feats, out_features=out_feats) for _ in range(n_etypes)]
+            sublayers=[
+                paddle.nn.Linear(in_features=out_feats, out_features=out_feats)
+                for _ in range(n_etypes)
+            ]
         )
         self.gru = paddle.nn.GRUCell(
             input_size=out_feats,
@@ -118,18 +122,18 @@ class GatedGraphConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`N`
             is the number of nodes of the graph and :math:`D_{in}` is the
             input feature size.
-        etypes : torch.LongTensor, or None
+        etypes : paddle.to_tensor, or None
             The edge type tensor of shape :math:`(E,)` where :math:`E` is
             the number of edges of the graph. When there's only one edge type,
             this argument can be skipped
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is the output feature size.
         """
@@ -140,7 +144,9 @@ class GatedGraphConv(paddle.nn.Layer):
             if self._n_etypes != 1:
                 assert (
                     etypes.min() >= 0 and etypes.max() < self._n_etypes
-                ), "edge type indices out of range [0, {})".format(self._n_etypes)
+                ), "edge type indices out of range [0, {})".format(
+                    self._n_etypes
+                )
             zero_pad = paddle.zeros(
                 shape=(
                     tuple(feat.shape)[0],
@@ -158,12 +164,18 @@ class GatedGraphConv(paddle.nn.Layer):
                     graph.ndata["h"] = feat
                     for i in range(self._n_etypes):
                         paddle.utils.try_import("warnings").warn(
-                            "Now, the return shape is inconsistent with torch when as_tuple is True"
+                            "Now, the return shape is inconsistent with paddle when as_tuple is True"
                         )
-                        eids = paddle.nonzero(x=etypes == i, as_tuple=False).view(-1).astype(graph.idtype)
+                        eids = (
+                            paddle.nonzero(x=etypes == i, as_tuple=False)
+                            .view(-1)
+                            .astype(graph.idtype)
+                        )
                         if len(eids) > 0:
                             graph.apply_edges(
-                                lambda edges: {"W_e*h": self.linears[i](edges.src["h"])},
+                                lambda edges: {
+                                    "W_e*h": self.linears[i](edges.src["h"])
+                                },
                                 eids,
                             )
                     graph.update_all(fn.copy_e("W_e*h", "m"), fn.sum("m", "a"))

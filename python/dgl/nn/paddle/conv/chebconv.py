@@ -1,4 +1,5 @@
-"""Torch Module for Chebyshev Spectral Graph Convolution layer"""
+"""Paddle Module for Chebyshev Spectral Graph Convolution layer"""
+
 import paddle
 
 from .... import broadcast_nodes
@@ -42,7 +43,7 @@ class ChebConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import ChebConv
     >>
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
@@ -71,7 +72,9 @@ class ChebConv(paddle.nn.Layer):
         self._in_feats = in_feats
         self._out_feats = out_feats
         self.activation = activation
-        self.linear = paddle.nn.Linear(in_features=k * in_feats, out_features=out_feats, bias_attr=bias)
+        self.linear = paddle.nn.Linear(
+            in_features=k * in_feats, out_features=out_feats, bias_attr=bias
+        )
 
     def forward(self, graph, feat, lambda_max=None):
         """Compute ChebNet layer.
@@ -80,7 +83,7 @@ class ChebConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape :math:`(N, D_{in})` where :math:`D_{in}`
             is size of input feature, :math:`N` is the number of nodes.
         lambda_max : list or tensor or None, optional.
@@ -93,7 +96,7 @@ class ChebConv(paddle.nn.Layer):
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature of shape :math:`(N, D_{out})` where :math:`D_{out}`
             is size of output feature.
         """
@@ -105,7 +108,9 @@ class ChebConv(paddle.nn.Layer):
             return graph.ndata.pop("h") * D_invsqrt
 
         with graph.local_scope():
-            D_invsqrt = paddle.pow(x=graph.in_degrees().to(feat).clip(min=1), y=-0.5).unsqueeze(axis=-1)
+            D_invsqrt = paddle.pow(
+                x=graph.in_degrees().to(feat).clip(min=1), y=-0.5
+            ).unsqueeze(axis=-1)
             if lambda_max is None:
                 dgl_warning(
                     "lambda_max is not provided, using default value of 2.  "

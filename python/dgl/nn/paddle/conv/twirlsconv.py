@@ -1,4 +1,5 @@
-"""Torch modules for TWIRLS"""
+"""Paddle modules for TWIRLS"""
+
 import paddle
 
 from .... import function as fn
@@ -62,14 +63,14 @@ class TWIRLSConv(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> from dgl.nn import TWIRLSConv
-    >>> import torch as th
+    >>> import paddle as th
 
     >>> g = dgl.graph(([0,1,2,3,2,5], [1,2,3,4,0,3]))
     >>> feat = th.ones(6, 10)
     >>> conv = TWIRLSConv(10, 2, 128, prop_step = 64)
     >>> res = conv(g , feat)
     >>> res.size()
-    torch.Size([6, 2])
+    (6, 2)
     """
 
     def __init__(
@@ -115,7 +116,11 @@ class TWIRLSConv(paddle.nn.Layer):
         self.attn_dropout = attn_dropout
         self.inp_dropout = inp_dropout
         self.attn_aft = prop_step // 2 if attention else -1
-        self.cacheable = not self.attention and self.num_mlp_before == 0 and self.inp_dropout <= 0
+        self.cacheable = (
+            not self.attention
+            and self.num_mlp_before == 0
+            and self.inp_dropout <= 0
+        )
         if self.cacheable:
             self.cached_unfolding = None
         self.size_bef_unf = self.hidden_d
@@ -168,11 +173,11 @@ class TWIRLSConv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The initial node features.
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature
 
         Note
@@ -189,7 +194,9 @@ class TWIRLSConv(paddle.nn.Layer):
             x = self.cached_unfolding
         else:
             if self.inp_dropout > 0:
-                x = paddle.nn.functional.dropout(x=x, p=self.inp_dropout, training=self.training)
+                x = paddle.nn.functional.dropout(
+                    x=x, p=self.inp_dropout, training=self.training
+                )
             x = self.mlp_bef(x)
             x = self.unfolding(graph, x)
         x = self.mlp_aft(x)
@@ -227,20 +234,24 @@ class Propagate(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        Y : torch.Tensor
+        Y : paddle.Tensor
             The feature under propagation. Corresponds to :math:`Z^{(k)}` in eq.28 in the paper.
-        X : torch.Tensor
+        X : paddle.Tensor
             The original feature. Corresponds to :math:`Z^{(0)}` in eq.28 in the paper.
         alp : float
             The step size. Corresponds to :math:`\\alpha` in the paper.
-        lam : torch.Tensor
+        lam : paddle.Tensor
             The coefficient of smoothing term. Corresponds to :math:`\\lambda` in the paper.
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             Propagated feature. :math:`Z^{(k+1)}` in eq.28 in the paper.
         """
-        return (1 - alp) * Y + alp * lam * self._prop(graph, Y, lam) + alp * D_power_bias_X(graph, X, -1, lam, 1 - lam)
+        return (
+            (1 - alp) * Y
+            + alp * lam * self._prop(graph, Y, lam)
+            + alp * D_power_bias_X(graph, X, -1, lam, 1 - lam)
+        )
 
 
 class PropagateNoPrecond(paddle.nn.Layer):
@@ -267,20 +278,24 @@ class PropagateNoPrecond(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        Y : torch.Tensor
+        Y : paddle.Tensor
             The feature under propagation. Corresponds to :math:`Y^{(k)}` in eq.30 in the paper.
-        X : torch.Tensor
+        X : paddle.Tensor
             The original feature. Corresponds to :math:`Y^{(0)}` in eq.30 in the paper.
         alp : float
             The step size. Corresponds to :math:`\\alpha` in the paper.
-        lam : torch.Tensor
+        lam : paddle.Tensor
             The coefficient of smoothing term. Corresponds to :math:`\\lambda` in the paper.
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             Propagated feature. :math:`Y^{(k+1)}` in eq.30 in the paper.
         """
-        return (1 - alp * lam - alp) * Y + alp * lam * normalized_AX(graph, Y) + alp * X
+        return (
+            (1 - alp * lam - alp) * Y
+            + alp * lam * normalized_AX(graph, Y)
+            + alp * X
+        )
 
 
 class Attention(paddle.nn.Layer):
@@ -303,7 +318,7 @@ class Attention(paddle.nn.Layer):
 
     Returns
     -------
-    torch.Tensor
+    paddle.Tensor
         The output feature
     """
 
@@ -336,7 +351,7 @@ class Attention(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        Y : torch.Tensor
+        Y : paddle.Tensor
             The feature to compute attention.
         etas : float
             The weight of each dimension. If ``None``, then weight of each dimension is 1.
@@ -439,7 +454,7 @@ class TWIRLSUnfoldingAndAttention(paddle.nn.Layer):
     -------
     >>> import dgl
     >>> from dgl.nn import TWIRLSUnfoldingAndAttention
-    >>> import torch as th
+    >>> import paddle as th
 
     >>> g = dgl.graph(([0, 1, 2, 3, 2, 5], [1, 2, 3, 4, 0, 3])).add_self_loop()
     >>> feat = th.ones(6,5)
@@ -481,11 +496,21 @@ class TWIRLSUnfoldingAndAttention(paddle.nn.Layer):
         self.use_eta = use_eta
         self.init_att = init_att
         prop_method = Propagate if precond else PropagateNoPrecond
-        self.prop_layers = paddle.nn.LayerList(sublayers=[prop_method() for _ in range(prop_step)])
-        self.init_attn = Attention(tau, T, p, attn_dropout) if self.init_att else None
-        self.attn_layer = Attention(tau, T, p, attn_dropout) if self.attn_aft >= 0 else None
+        self.prop_layers = paddle.nn.LayerList(
+            sublayers=[prop_method() for _ in range(prop_step)]
+        )
+        self.init_attn = (
+            Attention(tau, T, p, attn_dropout) if self.init_att else None
+        )
+        self.attn_layer = (
+            Attention(tau, T, p, attn_dropout) if self.attn_aft >= 0 else None
+        )
         self.etas = (
-            paddle.base.framework.EagerParamBase.from_tensor(tensor=paddle.ones(shape=d)) if self.use_eta else None
+            paddle.base.framework.EagerParamBase.from_tensor(
+                tensor=paddle.ones(shape=d)
+            )
+            if self.use_eta
+            else None
         )
 
     def forward(self, g, X):
@@ -499,12 +524,12 @@ class TWIRLSUnfoldingAndAttention(paddle.nn.Layer):
         ----------
         g : DGLGraph
             The graph.
-        X : torch.Tensor
+        X : paddle.Tensor
             Init features.
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The graph.
         """
         Y = X
@@ -561,20 +586,36 @@ class MLP(paddle.nn.Layer):
         self.dropout = dropout
         self.layers = paddle.nn.LayerList(sublayers=[])
         if num_layers == 1:
-            self.layers.append(paddle.nn.Linear(in_features=input_d, out_features=output_d))
+            self.layers.append(
+                paddle.nn.Linear(in_features=input_d, out_features=output_d)
+            )
         elif num_layers > 1:
-            self.layers.append(paddle.nn.Linear(in_features=input_d, out_features=hidden_d))
+            self.layers.append(
+                paddle.nn.Linear(in_features=input_d, out_features=hidden_d)
+            )
             for _ in range(num_layers - 2):
-                self.layers.append(paddle.nn.Linear(in_features=hidden_d, out_features=hidden_d))
-            self.layers.append(paddle.nn.Linear(in_features=hidden_d, out_features=output_d))
+                self.layers.append(
+                    paddle.nn.Linear(
+                        in_features=hidden_d, out_features=hidden_d
+                    )
+                )
+            self.layers.append(
+                paddle.nn.Linear(in_features=hidden_d, out_features=output_d)
+            )
         self.norm_cnt = num_layers - 1 + int(init_activate)
         if norm == "batch":
             self.norms = paddle.nn.LayerList(
-                sublayers=[paddle.nn.BatchNorm1D(num_features=hidden_d) for _ in range(self.norm_cnt)]
+                sublayers=[
+                    paddle.nn.BatchNorm1D(num_features=hidden_d)
+                    for _ in range(self.norm_cnt)
+                ]
             )
         elif norm == "layer":
             self.norms = paddle.nn.LayerList(
-                sublayers=[paddle.nn.LayerNorm(normalized_shape=hidden_d) for _ in range(self.norm_cnt)]
+                sublayers=[
+                    paddle.nn.LayerNorm(normalized_shape=hidden_d)
+                    for _ in range(self.norm_cnt)
+                ]
             )
         self.reset_params()
 
@@ -592,7 +633,9 @@ class MLP(paddle.nn.Layer):
             x = self.norms[self.cur_norm_idx](x)
             self.cur_norm_idx += 1
         x = paddle.nn.functional.relu(x=x)
-        x = paddle.nn.functional.dropout(x=x, p=self.dropout, training=self.training)
+        x = paddle.nn.functional.dropout(
+            x=x, p=self.dropout, training=self.training
+        )
         return x
 
     def forward(self, x):

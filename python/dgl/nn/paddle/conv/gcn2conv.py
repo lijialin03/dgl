@@ -1,5 +1,6 @@
-"""Torch Module for Graph Convolutional Network via Initial residual
+"""Paddle Module for Graph Convolutional Network via Initial residual
     and Identity mapping (GCNII) layer"""
+
 import math
 
 import paddle
@@ -78,7 +79,7 @@ class GCN2Conv(paddle.nn.Layer):
     --------
     >>> import dgl
     >>> import numpy as np
-    >>> import torch as th
+    >>> import paddle as th
     >>> from dgl.nn import GCN2Conv
 
     >>> # Homogeneous graph
@@ -180,22 +181,22 @@ class GCN2Conv(paddle.nn.Layer):
         ----------
         graph : DGLGraph
             The graph.
-        feat : torch.Tensor
+        feat : paddle.Tensor
             The input feature of shape
             :math:`(N, D_{in})`
             where :math:`D_{in}` is the size of input feature and :math:`N` is the number of nodes.
-        feat_0 : torch.Tensor
+        feat_0 : paddle.Tensor
             The initial feature of shape :math:`(N, D_{in})`
-        edge_weight: torch.Tensor, optional
+        edge_weight: paddle.Tensor, optional
             edge_weight to use in the message passing process. This is equivalent to
             using weighted adjacency matrix in the equation above, and
             :math:`\\tilde{D}^{-1/2}\\tilde{A} \\tilde{D}^{-1/2}`
-            is based on :class:`dgl.nn.pytorch.conv.graphconv.EdgeWeightNorm`.
+            is based on :class:`dgl.nn.paddle.conv.graphconv.EdgeWeightNorm`.
 
 
         Returns
         -------
-        torch.Tensor
+        paddle.Tensor
             The output feature
 
         Raises
