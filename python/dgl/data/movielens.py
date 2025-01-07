@@ -4,7 +4,12 @@ import os
 import numpy as np
 import pandas as pd
 
-from torch import LongTensor, Tensor
+from .. import backend as F
+if F.backend_name == "pytorch":
+    from torch import LongTensor, Tensor
+elif F.backend_name == "paddle":
+    from paddle import to_tensor as LongTensor
+    from paddle import to_tensor as Tensor
 
 from ..base import dgl_warning
 from ..convert import heterograph

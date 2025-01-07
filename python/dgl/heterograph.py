@@ -4345,7 +4345,7 @@ class DGLGraph(object):
                     "Expect number of features to match number of nodes (len(u))."
                     " Got %d and %d instead." % (nfeats, num_nodes)
                 )
-            if F.context(val) != self.device:
+            if str(F.context(val)) != str(self.device):
                 raise DGLError(
                     'Cannot assign node feature "{}" on device {} to a graph on'
                     " device {}. Call DGLGraph.to() to copy the graph to the"

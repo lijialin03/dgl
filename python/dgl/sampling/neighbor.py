@@ -2,13 +2,16 @@
 
 import os
 
-import torch
-
 from .. import backend as F, ndarray as nd, utils
 from .._ffi.function import _init_api
 from ..base import DGLError, EID
 from ..heterograph import DGLBlock, DGLGraph
 from .utils import EidExcluder
+
+if F.backend_name == "pytorch":
+    import torch
+elif F.backend_name == "paddle":
+    import paddle
 
 __all__ = [
     "sample_etype_neighbors",
@@ -607,10 +610,16 @@ def _sample_neighbors(
             mapping = {}
         mapping_name = "__mapping" + str(os.getpid())
         if mapping_name not in mapping.keys():
-            mapping[mapping_name] = [
-                torch.LongTensor(g.num_nodes(ntype)).fill_(-1)
-                for ntype in g.ntypes
-            ]
+            if F.backend_name == "pytorch":
+                mapping[mapping_name] = [
+                    torch.LongTensor(g.num_nodes(ntype)).fill_(-1)
+                    for ntype in g.ntypes
+                ]
+            elif F.backend_name == "paddle":
+                mapping[mapping_name] = [
+                    paddle.to_tensor(g.num_nodes(ntype)).fill_(-1)
+                    for ntype in g.ntypes
+                ]
 
         subgidx, induced_nodes, induced_edges = _CAPI_DGLSampleNeighborsFused(
             g._graph,

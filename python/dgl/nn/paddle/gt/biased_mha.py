@@ -2,7 +2,7 @@
 
 import paddle
 
-from ....backends.paddle.utils import transpose_aux_func
+from ....backend.paddle.utils import transpose_aux_func
 
 
 class BiasedMHA(paddle.nn.Layer):
