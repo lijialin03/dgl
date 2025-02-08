@@ -2,10 +2,14 @@
 
 import os
 
-from .. import backend as F, ndarray as nd, utils
+from .. import backend as F
+from .. import ndarray as nd
+from .. import utils
 from .._ffi.function import _init_api
-from ..base import DGLError, EID
-from ..heterograph import DGLBlock, DGLGraph
+from ..base import EID
+from ..base import DGLError
+from ..heterograph import DGLBlock
+from ..heterograph import DGLGraph
 from .utils import EidExcluder
 
 if F.backend_name == "pytorch":
@@ -186,7 +190,7 @@ def sample_etype_neighbors(
 
     prob_array = _prepare_edge_arrays(g, prob)
 
-    subgidx = _CAPI_DGLSampleNeighborsEType(
+    subgidx = _CAPI_DGLSampleNeighborsEType(  # noqa: F821
         g._graph,
         nodes,
         etype_offset,
@@ -621,7 +625,11 @@ def _sample_neighbors(
                     for ntype in g.ntypes
                 ]
 
-        subgidx, induced_nodes, induced_edges = _CAPI_DGLSampleNeighborsFused(
+        (
+            subgidx,
+            induced_nodes,
+            induced_edges,
+        ) = _CAPI_DGLSampleNeighborsFused(  # noqa: F821
             g._graph,
             nodes_all_types,
             [F.to_dgl_nd(m) for m in mapping[mapping_name]],
@@ -641,7 +649,7 @@ def _sample_neighbors(
         assert ret.is_unibipartite
 
     else:
-        subgidx = _CAPI_DGLSampleNeighbors(
+        subgidx = _CAPI_DGLSampleNeighbors(  # noqa: F821
             g._graph,
             nodes_all_types,
             fanout_array,
@@ -859,7 +867,7 @@ def sample_neighbors_biased(
     else:
         raise DGLError("edge_dir can only be 'in' or 'out'")
 
-    subgidx = _CAPI_DGLSampleNeighborsBiased(
+    subgidx = _CAPI_DGLSampleNeighborsBiased(  # noqa: F821
         g._graph,
         nodes_array,
         fanout,
@@ -1021,7 +1029,7 @@ def select_topk(
                 )
             )
 
-    subgidx = _CAPI_DGLSampleNeighborsTopk(
+    subgidx = _CAPI_DGLSampleNeighborsTopk(  # noqa: F821
         g._graph,
         nodes_all_types,
         k_array,

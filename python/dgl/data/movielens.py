@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 
 from .. import backend as F
+
 if F.backend_name == "pytorch":
-    from torch import LongTensor, Tensor
+    from torch import LongTensor
+    from torch import Tensor
 elif F.backend_name == "paddle":
     from paddle import to_tensor as LongTensor
     from paddle import to_tensor as Tensor
@@ -14,17 +16,14 @@ elif F.backend_name == "paddle":
 from ..base import dgl_warning
 from ..convert import heterograph
 from .dgl_dataset import DGLDataset
-
-from .utils import (
-    _get_dgl_url,
-    download,
-    extract_archive,
-    load_graphs,
-    load_info,
-    save_graphs,
-    save_info,
-    split_dataset,
-)
+from .utils import _get_dgl_url
+from .utils import download
+from .utils import extract_archive
+from .utils import load_graphs
+from .utils import load_info
+from .utils import save_graphs
+from .utils import save_info
+from .utils import split_dataset
 
 GENRES_ML_100K = [
     "unknown",
@@ -69,9 +68,11 @@ def check_pytorch():
 class MovieLensDataset(DGLDataset):
     r"""MovieLens dataset for edge prediction tasks. The raw datasets are extracted from
     `MovieLens <https://grouplens.org/datasets/movielens/>`, introduced by
-    `Movielens unplugged: experiences with an occasionally connected recommender system <https://dl.acm.org/doi/10.1145/604045.604094>`.
+    `Movielens unplugged: experiences with an occasionally connected recommender system
+        <https://dl.acm.org/doi/10.1145/604045.604094>`.
 
-    The datasets consist of user ratings for movies and incorporate additional user/movie information in the form of features.
+    The datasets consist of user ratings for movies and incorporate additional user/movie information
+        in the form of features.
     The nodes represent users and movies, and the edges store ratings that users assign to movies.
 
     Statistics:
@@ -122,7 +123,8 @@ class MovieLensDataset(DGLDataset):
 
     Notes
     -----
-    - When :obj:`name` is :obj:`"ml-100k"`, the :obj:`test_ratio` is invalid, and the training ratio is equal to 1-:obj:`valid_ratio`.
+    - When :obj:`name` is :obj:`"ml-100k"`, the :obj:`test_ratio` is invalid,
+        and the training ratio is equal to 1-:obj:`valid_ratio`.
     When :obj:`name` is :obj:`"ml-1m"` or :obj:`"ml-10m"`, the :obj:`test_ratio` is valid,
     and the training ratio is equal to 1-:obj:`valid_ratio`-:obj:`test_ratio`.
     - The number of edges is doubled to form an undirected(bidirected) graph structure.
@@ -200,7 +202,10 @@ class MovieLensDataset(DGLDataset):
             assert (
                 test_ratio + valid_ratio > 0.0
                 and test_ratio + valid_ratio < 1.0
-            ), f"test_ratio({test_ratio}) + valid_ratio({valid_ratio}) must be set to (0.0, 1.0) when using ml-1m and ml-10m"
+            ), (
+                f"test_ratio({test_ratio}) + valid_ratio({valid_ratio}) must be set to (0.0, 1.0) "
+                "when using ml-1m and ml-10m"
+            )
 
         if name == "ml-100k" and test_ratio is not None:
             dgl_warning(

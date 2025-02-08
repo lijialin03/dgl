@@ -5,34 +5,34 @@ import numbers
 
 # pylint: disable= too-many-lines
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
+from collections.abc import Mapping
 from contextlib import contextmanager
 
 import networkx as nx
 import numpy as np
 
-from . import backend as F, core, graph_index, heterograph_index, utils
-
+from . import backend as F
+from . import core
+from . import graph_index
+from . import heterograph_index
+from . import utils
 from ._ffi.function import _init_api
-from .base import (
-    ALL,
-    dgl_warning,
-    DGLError,
-    EID,
-    ETYPE,
-    is_all,
-    NID,
-    NTYPE,
-    SLICE_FULL,
-)
+from .base import ALL
+from .base import EID
+from .base import ETYPE
+from .base import NID
+from .base import NTYPE
+from .base import SLICE_FULL
+from .base import DGLError
+from .base import dgl_warning
+from .base import is_all
 from .frame import Frame
 from .ops import segment
-from .view import (
-    HeteroEdgeDataView,
-    HeteroEdgeView,
-    HeteroNodeDataView,
-    HeteroNodeView,
-)
+from .view import HeteroEdgeDataView
+from .view import HeteroEdgeView
+from .view import HeteroNodeDataView
+from .view import HeteroNodeView
 
 __all__ = ["DGLGraph", "combine_names"]
 
@@ -6468,7 +6468,7 @@ def find_src_dst_ntypes(ntypes, metagraph):
         a dictionary from type name to type id. Return None if the graph is
         not uni-bipartite.
     """
-    ret = _CAPI_DGLFindSrcDstNtypes(metagraph)
+    ret = _CAPI_DGLFindSrcDstNtypes(metagraph)  # noqa: F821
     if ret is None:
         return None
     else:
@@ -6602,7 +6602,9 @@ def combine_frames(frames, ids, col_names=None):
         return None
 
     # concatenate the columns
-    to_cat = lambda key: [frames[i][key] for i in ids if frames[i].num_rows > 0]
+    def to_cat(key):
+        return [frames[i][key] for i in ids if frames[i].num_rows > 0]
+
     cols = {key: F.cat(to_cat(key), dim=0) for key in schemes}
     return Frame(cols)
 

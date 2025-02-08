@@ -1,6 +1,7 @@
 """Checking and logging utilities."""
 # pylint: disable=invalid-name
-from __future__ import absolute_import, division
+from __future__ import absolute_import
+from __future__ import division
 
 from collections.abc import Mapping
 
@@ -45,11 +46,9 @@ def prepare_tensor(g, data, name):
         ret = data
     else:
         data = F.tensor(data)
-        if not (
-            F.ndim(data) > 0 and F.shape(data)[0] == 0
-        ) and F.dtype(  # empty tensor
+        if not (F.ndim(data) > 0 and F.shape(data)[0] == 0) and F.dtype(
             data
-        ) not in (
+        ) not in (  # empty tensor
             F.int32,
             F.int64,
         ):
@@ -284,7 +283,9 @@ def is_sorted_srcdst(src, dst, num_src=None, num_dst=None):
 
     src = F.zerocopy_to_dgl_ndarray(src)
     dst = F.zerocopy_to_dgl_ndarray(dst)
-    sorted_status = _CAPI_DGLCOOIsSorted(src, dst, num_src, num_dst)
+    sorted_status = _CAPI_DGLCOOIsSorted(  # noqa: F821
+        src, dst, num_src, num_dst
+    )
 
     row_sorted = sorted_status > 0
     col_sorted = sorted_status > 1
